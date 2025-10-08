@@ -3,6 +3,7 @@ import { FormlyFieldConfig, FormlyModule } from '@ngx-formly/core';
 import { FieldType } from '@ngx-formly/material';
 import { MatButton } from '@angular/material/button';
 import { TranslatePipe } from '@ngx-translate/core';
+import { Log } from '../../core/log';
 
 @Component({
   selector: 'formly-btn',
@@ -15,9 +16,9 @@ export class FormlyBtnComponent extends FieldType<FormlyFieldConfig> {
   onClick(): void {
     if (this.to.onClick) {
       const r = this.to.onClick(this.field, this.form, this.model);
-      if ('then' in r) {
+      if (r && 'then' in r) {
         r.then((v) => {
-          console.log('update', v, this);
+          Log.log('update', v, this);
           this.formControl.setValue(v);
           this.form.markAsDirty();
         });

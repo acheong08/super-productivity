@@ -1,5 +1,5 @@
 import { FormlyFieldConfig } from '@ngx-formly/core';
-import { isArray } from 'rxjs/internal-compatibility';
+import { stringToMs } from '../ui/duration/string-to-ms.pipe';
 
 export const adjustToLiveFormlyForm = (
   items: FormlyFieldConfig[],
@@ -23,7 +23,16 @@ export const adjustToLiveFormlyForm = (
           ...item.templateOptions,
           keydown: (field: FormlyFieldConfig, event: KeyboardEvent) => {
             if (event.key === 'Enter' && (event.target as any)?.tagName !== 'TEXTAREA') {
-              field.formControl?.setValue((event?.target as any)?.value);
+              event.preventDefault();
+              const value = (event?.target as any)?.value;
+              // For duration fields, convert the string to milliseconds
+              if (item.type === 'duration') {
+                field.formControl?.setValue(value ? stringToMs(value) : null);
+              } else if (item?.templateOptions?.type === 'number') {
+                field.formControl?.setValue(value ? Number(value) : 0);
+              } else {
+                field.formControl?.setValue(value);
+              }
             }
           },
         },
@@ -34,7 +43,7 @@ export const adjustToLiveFormlyForm = (
       };
     }
 
-    if (isArray(item?.fieldGroup)) {
+    if (Array.isArray(item?.fieldGroup)) {
       return {
         ...item,
         fieldGroup: adjustToLiveFormlyForm(item?.fieldGroup),
@@ -44,7 +53,7 @@ export const adjustToLiveFormlyForm = (
     if (
       item.type === 'repeat' &&
       (item?.fieldArray as any)?.fieldGroup &&
-      isArray((item.fieldArray as any).fieldGroup)
+      Array.isArray((item.fieldArray as any).fieldGroup)
     ) {
       return {
         ...item,

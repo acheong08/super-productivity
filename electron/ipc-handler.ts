@@ -6,8 +6,8 @@ import {
   globalShortcut,
   ipcMain,
   IpcMainEvent,
+  ProgressBarOptions,
   shell,
-  process,
 } from 'electron';
 import { IPC } from './shared-with-frontend/ipc-events.const';
 import { lockscreen } from './lockscreen';
@@ -20,16 +20,24 @@ import { exec } from 'child_process';
 import { getWin } from './main-window';
 import { quitApp, showOrFocus } from './various-shared';
 import { loadSimpleStoreAll, saveSimpleStore } from './simple-store';
-import { BACKUP_DIR } from './backup';
+import { BACKUP_DIR, BACKUP_DIR_WINSTORE } from './backup';
+import { pluginNodeExecutor } from './plugin-node-executor';
 
 export const initIpcInterfaces = (): void => {
+  // Initialize plugin node executor (registers IPC handlers)
+  // This is needed for plugins with nodeExecution permission
+  // The constructor automatically sets up the IPC handlers
+  log('Initializing plugin node executor');
+  if (!pluginNodeExecutor) {
+    log('Warning: Plugin node executor failed to initialize');
+  }
   // HANDLER
   // -------
   ipcMain.handle(IPC.GET_PATH, (ev, name: string) => {
-    return app.getPath(name as any);
+    return app.getPath(name as Parameters<typeof app.getPath>[0]);
   });
   ipcMain.handle(IPC.GET_BACKUP_PATH, () => {
-    if (process.windowsStore) {
+    if (process?.windowsStore) {
       return BACKUP_DIR_WINSTORE;
     } else {
       return BACKUP_DIR;
@@ -54,6 +62,23 @@ export const initIpcInterfaces = (): void => {
   ipcMain.on(IPC.OPEN_PATH, (ev, path: string) => shell.openPath(path));
   ipcMain.on(IPC.OPEN_EXTERNAL, (ev, url: string) => shell.openExternal(url));
 
+  ipcMain.handle(IPC.SAVE_FILE_DIALOG, async (ev, { filename, data }) => {
+    const result = await dialog.showSaveDialog(getWin(), {
+      defaultPath: filename,
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+
+    if (!result.canceled && result.filePath) {
+      const fs = await import('fs');
+      await fs.promises.writeFile(result.filePath, data, 'utf-8');
+      return { success: true, path: result.filePath };
+    }
+    return { success: false };
+  });
+
   ipcMain.on(IPC.LOCK_SCREEN, () => {
     if ((app as any).isLocked) {
       return;
@@ -66,10 +91,16 @@ export const initIpcInterfaces = (): void => {
     }
   });
 
-  ipcMain.on(IPC.SET_PROGRESS_BAR, (ev, { progress, mode }) => {
+  ipcMain.on(IPC.SET_PROGRESS_BAR, (ev, { progress, progressBarMode }) => {
     const mainWin = getWin();
     if (mainWin) {
-      mainWin.setProgressBar(Math.min(Math.max(progress, 0), 1), { mode });
+      if (progressBarMode === 'none') {
+        mainWin.setProgressBar(-1);
+      } else {
+        mainWin.setProgressBar(Math.min(Math.max(progress, 0), 1), {
+          mode: progressBarMode as ProgressBarOptions['mode'],
+        });
+      }
     }
   });
 
@@ -155,7 +186,7 @@ export const initIpcInterfaces = (): void => {
               actionFn = () => {
                 showOrFocus(mainWin);
                 // NOTE: delay slightly to make sure app is ready
-                mainWin.webContents.send(IPC.ADD_TASK);
+                mainWin.webContents.send(IPC.SHOW_ADD_TASK_BAR);
               };
               break;
 

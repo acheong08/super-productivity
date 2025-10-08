@@ -11,6 +11,7 @@ import { saveBeforeLastErrorActionLog } from '../../util/action-logger';
 import { error } from 'electron-log/renderer';
 import { PfapiService } from '../../pfapi/pfapi.service';
 import { CompleteBackup } from '../../pfapi/api';
+import { Log } from '../log';
 
 let isErrorAlertShown = false;
 
@@ -19,11 +20,19 @@ export class GlobalErrorHandler implements ErrorHandler {
   private injector = inject<Injector>(Injector);
 
   // TODO Cleanup this mess
-  async handleError(err: any): Promise<void> {
-    const errStr = typeof err === 'string' ? err : err.toString();
+  async handleError(err: unknown): Promise<void> {
+    const errStr = typeof err === 'string' ? err : String(err);
     // eslint-disable-next-line
-    const simpleStack = err && err.stack;
-    console.error('GLOBAL_ERROR_HANDLER', err);
+    let simpleStack = '';
+    if (
+      err &&
+      typeof err === 'object' &&
+      'stack' in err &&
+      typeof err.stack === 'string'
+    ) {
+      simpleStack = err.stack;
+    }
+    Log.err('GLOBAL_ERROR_HANDLER', err);
 
     // if not our custom error handler we have a critical error on our hands
     if (!isHandledError(err) && !isErrorAlertShown) {
@@ -59,7 +68,7 @@ export class GlobalErrorHandler implements ErrorHandler {
         ? str
         : 'Unable to parse error string. Please see console error';
     } else {
-      return (err as any).toString();
+      return String(err);
     }
   }
 
@@ -67,8 +76,8 @@ export class GlobalErrorHandler implements ErrorHandler {
     try {
       return await this.injector.get(PfapiService).pf.loadCompleteBackup(true);
     } catch (e) {
-      console.warn('Cannot load user data for error modal');
-      console.error(e);
+      Log.err('Cannot load user data for error modal');
+      Log.err(e);
       return undefined;
     }
   }

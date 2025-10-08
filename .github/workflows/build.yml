@@ -10,13 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
 
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       # work around for npm installs from git+https://github.com/johannesjo/J2M.git
@@ -41,26 +43,29 @@ jobs:
         #  if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm i
 
+      - name: Install Playwright Browsers
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright install-deps chromium
+
+      - run: npm run env # Generate env.generated.ts
+
       - name: Lint
-        run: npm run lint:ci
+        run: npm run lint
 
       - name: Test Unit
         run: npm run test
 
       - name: Test E2E
         run: npm run e2e
-      - name: Upload performance metrics as an artifact
+
+      - name: 'Upload E2E results on failure'
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: nightwatch-performance-metrics
-          path: perf-metrics*.json
-      - name: 'Upload E2E screenshots on failure'
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2eScreenshots
-          path: e2e/screenshots/**/*.*
-          retention-days: 5
+          name: e2eResults
+          path: .tmp/e2e-test-results/**/*.*
+          retention-days: 14
 
       - name: Build Frontend & Electron
         run: npm run build
@@ -76,7 +81,7 @@ jobs:
           release: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
       # rename to possibly fix release issue
-      - run: find ./app-builds -type f -name '*.snap' -exec sh -c 'x="{}"; mv "$x" "app-builds/sp.snap"' \;
+      - run: find ./.tmp/app-builds -type f -name '*.snap' -exec sh -c 'x="{}"; mv "$x" ".tmp/app-builds/sp.snap"' \;
       # Release to edge if no tag and to candidate if tag
       - #otherwise it would be executed twice
         if: false == startsWith(github.ref, 'refs/tags/v')
@@ -84,8 +89,8 @@ jobs:
         with:
           max_attempts: 2
           timeout_minutes: 11
-          command: snapcraft push app-builds/sp.snap --release edge
-      #      - run: snapcraft push app-builds/sp.snap --release candidate
+          command: snapcraft push .tmp/app-builds/sp.snap --release edge
+      #      - run: snapcraft push .tmp/app-builds/sp.snap --release candidate
       #        if: startsWith(github.ref, 'refs/tags/v')
   #      - run: snapcraft promote superproductivity --from-channel latest/edge --to-channel latest/candidate --yes
   #        if: startsWith(github.ref, 'refs/tags/v')
@@ -93,9 +98,12 @@ jobs:
   mac-bin:
     runs-on: macos-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    env:
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
 
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       - name: Echo is Release
@@ -104,7 +112,7 @@ jobs:
           IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       # work around for npm installs from git+https://github.com/johannesjo/J2M.git
@@ -143,8 +151,10 @@ jobs:
           mkdir -p ~/private_keys/
           echo '${{ secrets.mac_api_key }}' > ~/private_keys/AuthKey_${{ secrets.mac_api_key_id }}.p8
 
+      - run: npm run env # Generate env.generated.ts
+
       - name: Lint
-        run: npm run lint:ci
+        run: npm run lint
 
       - name: Test Unit
         run: npm run test
@@ -180,9 +190,12 @@ jobs:
   windows-bin:
     runs-on: windows-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    env:
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
 
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       # required because setting via env.TZ does not work on windows
@@ -192,7 +205,7 @@ jobs:
           timezoneWindows: 'W. Europe Standard Time'
 
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       # work around for npm installs from git+https://github.com/johannesjo/J2M.git
@@ -220,8 +233,10 @@ jobs:
         #  if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm i
 
+      - run: npm run env # Generate env.generated.ts
+
       - name: Lint
-        run: npm run lint:ci
+        run: npm run lint
 
       - name: Test Unit
         run: npm run test

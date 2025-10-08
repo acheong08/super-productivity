@@ -24,16 +24,17 @@ import {
   reduce,
   take,
 } from 'rxjs/operators';
-import { GitlabIssue } from '../gitlab-issue/gitlab-issue.model';
+import { GitlabIssue } from '../gitlab-issue.model';
 import {
   getPartsFromGitlabIssueId,
   mapGitlabIssue,
   mapGitlabIssueToSearchResult,
-} from '../gitlab-issue/gitlab-issue-map.util';
+} from '../gitlab-issue-map.util';
 import { SearchResultItem } from '../../../issue.model';
 import { GITLAB_TYPE, ISSUE_PROVIDER_HUMANIZED } from '../../../issue.const';
 import { assertTruthy } from '../../../../../util/assert-truthy';
 import { handleIssueProviderHttpError$ } from '../../../handle-issue-provider-http-error';
+import { IssueLog } from '../../../../../core/log';
 
 @Injectable({
   providedIn: 'root',
@@ -43,7 +44,7 @@ export class GitlabApiService {
   private _http = inject(HttpClient);
 
   getById$(id: string, cfg: GitlabCfg): Observable<GitlabIssue> {
-    console.log(this._issueApiLink(cfg, id));
+    IssueLog.log(this._issueApiLink(cfg, id));
 
     return this._sendIssuePaginatedRequest$(
       {
@@ -307,12 +308,13 @@ export class GitlabApiService {
         responseType: params.responseType,
       },
     ];
-    console.log(allArgs);
+    // NOTE: DO NOT LOG allArgs - contains PRIVATE-TOKEN in headers
+    // IssueLog.log(allArgs);
 
     const req = new HttpRequest(p.method, p.url, ...allArgs);
 
     return this._http.request(req).pipe(
-      // TODO remove type: 0 @see https://brianflove.com/2018/09/03/angular-http-client-observe-response/
+      // Filter out HttpEventType.Sent (type: 0) events to only process actual responses
       filter((res) => !(res === Object(res) && res.type === 0)),
       catchError((err) =>
         handleIssueProviderHttpError$<HttpEvent<unknown>>(
@@ -325,7 +327,7 @@ export class GitlabApiService {
   }
 
   private _issueApiLink(cfg: GitlabCfg, issueId: string): string {
-    console.log(issueId);
+    IssueLog.log(issueId);
     const { projectIssueId } = getPartsFromGitlabIssueId(issueId);
     return `${this._apiLink(cfg)}/issues/${projectIssueId}`;
   }

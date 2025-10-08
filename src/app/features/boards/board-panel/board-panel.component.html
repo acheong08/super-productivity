@@ -23,10 +23,11 @@
 
 <!--[cdkDropListData]="panelCfg()"-->
 <add-task-inline
+  style="margin-bottom: 8px"
   [additionalFields]="additionalTaskFields()"
   [tagsToRemove]="panelCfg().excludedTagIds"
-  [isSkipAddingCurrentTag]="true"
   [taskIdsToExclude]="panelCfg().taskIds"
+  [isNoDefaults]="true"
   (afterTaskAdd)="afterTaskAdd($event)"
 ></add-task-inline>
 
@@ -54,11 +55,11 @@
           <mat-icon>alarm</mat-icon>
           <div
             class="time-badge"
-            [innerHTML]="task.plannedAt | shortPlannedAt"
+            [innerHTML]="task.dueWithTime | shortPlannedAt"
           ></div>
         </button>
       }
-      @if (plannedTaskDayMap()[task.id]) {
+      @if (task.dueDay) {
         <button
           (click)="scheduleTask(task, $event)"
           [title]="T.F.TASK.CMP.SCHEDULE | translate"
@@ -67,7 +68,7 @@
           mat-icon-button
         >
           <mat-icon>today</mat-icon>
-          <div class="time-badge">{{ plannedTaskDayMap()[task.id] | localDateStr }}</div>
+          <div class="time-badge">{{ task.dueDay | localDateStr }}</div>
         </button>
       }
     </planner-task>

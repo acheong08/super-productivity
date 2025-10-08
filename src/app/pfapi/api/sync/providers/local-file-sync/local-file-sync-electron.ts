@@ -1,15 +1,13 @@
 // src/app/pfapi/api/sync/providers/local-file-sync/electron-file-adapter.ts
 import { LocalFileSyncBase } from './local-file-sync-base';
 import { IS_ELECTRON } from '../../../../../app.constants';
-import { pfLog } from '../../../util/log';
+import { PFLog } from '../../../../../core/log';
 import { ElectronFileAdapter } from './electron-file-adapter';
-import { SyncProviderPrivateCfgBase } from '../../../pfapi.model';
-
-export interface LocalFileSyncElectronPrivateCfg extends SyncProviderPrivateCfgBase {
-  syncFolderPath: string;
-}
+import { LocalFileSyncPrivateCfg } from '../../../pfapi.model';
 
 export class LocalFileSyncElectron extends LocalFileSyncBase {
+  private static readonly L = 'LocalFileSyncElectron';
+
   constructor() {
     super(new ElectronFileAdapter());
   }
@@ -22,8 +20,8 @@ export class LocalFileSyncElectron extends LocalFileSyncBase {
     return !!privateCfg?.syncFolderPath;
   }
 
-  async setPrivateCfg(privateCfg: LocalFileSyncElectronPrivateCfg): Promise<void> {
-    await this.privateCfg.save(privateCfg);
+  async setPrivateCfg(privateCfg: LocalFileSyncPrivateCfg): Promise<void> {
+    await this.privateCfg.setComplete(privateCfg);
   }
 
   async getFilePath(targetPath: string): Promise<string> {
@@ -36,9 +34,8 @@ export class LocalFileSyncElectron extends LocalFileSyncBase {
   }
 
   private async _checkDirAndOpenPickerIfNotExists(): Promise<void> {
-    pfLog(
-      2,
-      `${LocalFileSyncElectron.name}.${this._checkDirAndOpenPickerIfNotExists.name}`,
+    PFLog.normal(
+      `${LocalFileSyncElectron.L}.${this._checkDirAndOpenPickerIfNotExists.name}`,
     );
 
     try {
@@ -46,13 +43,12 @@ export class LocalFileSyncElectron extends LocalFileSyncBase {
       const isDirExists = await this._checkDirExists(folderPath);
 
       if (!isDirExists) {
-        pfLog(0, `${LocalFileSyncElectron.name} - No valid directory, opening picker`);
+        PFLog.critical(`${LocalFileSyncElectron.L} - No valid directory, opening picker`);
         await this.pickDirectory();
       }
     } catch (err) {
-      pfLog(
-        1,
-        `${LocalFileSyncElectron.name}.${this._checkDirAndOpenPickerIfNotExists.name}() error`,
+      PFLog.error(
+        `${LocalFileSyncElectron.L}.${this._checkDirAndOpenPickerIfNotExists.name}() error`,
         err,
       );
       await this.pickDirectory();
@@ -78,22 +74,25 @@ export class LocalFileSyncElectron extends LocalFileSyncBase {
       }
       return r;
     } catch (e) {
-      pfLog(0, `${LocalFileSyncElectron.name}.${this._checkDirExists.name}() error`, e);
+      PFLog.critical(
+        `${LocalFileSyncElectron.L}.${this._checkDirExists.name}() error`,
+        e,
+      );
       return false;
     }
   }
 
   async pickDirectory(): Promise<string | void> {
-    pfLog(2, `${LocalFileSyncElectron.name}.pickDirectory()`);
+    PFLog.normal(`${LocalFileSyncElectron.L}.pickDirectory()`);
 
     try {
       const dir = await (window as any).ea.pickDirectory();
       if (dir) {
-        await this.privateCfg.save({ syncFolderPath: dir });
+        await this.privateCfg.upsertPartial({ syncFolderPath: dir });
       }
       return dir;
     } catch (e) {
-      pfLog(0, `${LocalFileSyncElectron.name}.pickDirectory() error`, e);
+      PFLog.critical(`${LocalFileSyncElectron.L}.pickDirectory() error`, e);
       throw e;
     }
   }

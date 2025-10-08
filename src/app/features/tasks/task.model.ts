@@ -2,7 +2,8 @@ import { IssueProviderKey } from '../issue/issue.model';
 import { Reminder } from '../reminder/reminder.model';
 import { EntityState } from '@ngrx/entity';
 import { TaskAttachment } from './task-attachment/task-attachment.model';
-import { MODEL_VERSION_KEY } from '../../app.constants';
+// Import the unified Task type from plugin-api
+import { Task as PluginTask } from '@super-productivity/plugin-api';
 
 export enum HideSubTasksMode {
   // Show is undefined
@@ -16,7 +17,13 @@ export enum TaskDetailTargetPanel {
   DONT_OPEN_PANEL = 'DONT_OPEN_PANEL',
 }
 
-export type DropListModelSource = 'UNDONE' | 'DONE' | 'BACKLOG' | 'ADD_TASK_PANEL';
+export type DropListModelSource =
+  | 'UNDONE'
+  | 'DONE'
+  | 'BACKLOG'
+  | 'ADD_TASK_PANEL'
+  | 'OVERDUE'
+  | 'LATER_TODAY';
 
 // NOTE: do not change these, as they are used inside task repeat model directly
 // (new can be added though)
@@ -41,8 +48,6 @@ export interface TimeSpentOnDayCopy {
 
 export interface TaskArchive extends EntityState<ArchiveTask> {
   ids: string[];
-  // additional entities state properties
-  [MODEL_VERSION_KEY]?: number;
 }
 
 export type TimeSpentOnDay = Readonly<TimeSpentOnDayCopy>;
@@ -57,43 +62,43 @@ export interface IssueFieldsForTask {
   issueProviderId?: string;
   issueType?: IssueProviderKey;
   issueWasUpdated?: boolean;
-  issueLastUpdated?: number;
+  // TODO remove null again
+  issueLastUpdated?: number | null;
   issueAttachmentNr?: number;
   issueTimeTracked?: IssueTaskTimeTracked;
   issuePoints?: number;
 }
 
-export interface TaskCopy extends IssueFieldsForTask {
-  id: string;
-  projectId?: string;
-  title: string;
-
-  subTaskIds: string[];
-
+// Extend the plugin Task type with app-specific fields
+// Omit issue fields from PluginTask to avoid conflict with IssueFieldsForTask
+export interface TaskCopy
+  extends Omit<
+      PluginTask,
+      | 'issueId'
+      | 'issueProviderId'
+      | 'issueType'
+      | 'issueWasUpdated'
+      | 'issueLastUpdated'
+      | 'issueAttachmentNr'
+      | 'issuePoints'
+    >,
+    IssueFieldsForTask {
+  // Override required fields that are optional in plugin type
+  projectId: string;
   timeSpentOnDay: TimeSpentOnDay;
-  timeEstimate: number;
-  timeSpent: number;
 
-  notes?: string;
-
-  created: number;
-  isDone: boolean;
-  doneOn?: number;
-  plannedAt?: number;
+  // Additional app-specific fields
+  dueWithTime?: number;
+  dueDay?: string;
   hasPlannedTime?: boolean;
-  // remindCfg: TaskReminderOptionId;
+  attachments: TaskAttachment[];
 
+  // Ensure type compatibility for internal fields
+  modified?: number;
+  doneOn?: number;
   parentId?: string;
   reminderId?: string;
   repeatCfgId?: string;
-  // NOTE: only main tasks have tagIds set
-  tagIds: string[];
-
-  // attachments
-  attachments: TaskAttachment[];
-
-  // ui model
-  // 0: show, 1: hide-done tasks, 2: hide all sub-tasks
   _hideSubTasksMode?: HideSubTasksMode;
 }
 
@@ -114,20 +119,22 @@ export interface TaskWithReminderData extends Task {
 
 export interface TaskWithReminder extends Task {
   reminderId: string;
-  plannedAt: number;
+  dueWithTime: number;
 }
 
-export interface TaskPlanned extends Task {
-  plannedAt: number;
+export interface TaskWithDueTime extends Task {
+  dueWithTime: number;
 }
 
-export interface TaskWithPlannedDay extends Task {
-  plannedDay: string;
+export interface TaskWithDueDay extends Task {
+  dueDay: string;
 }
+
+export type TaskPlannedWithDayOrTime = TaskWithDueTime | TaskWithDueDay;
 
 export interface TaskWithoutReminder extends Task {
   reminderId: undefined;
-  plannedAt: undefined;
+  due: undefined;
 }
 
 export interface TaskWithPlannedForDayIndication extends TaskWithoutReminder {
@@ -138,7 +145,13 @@ export interface TaskWithSubTasks extends Task {
   readonly subTasks: Task[];
 }
 
-export const DEFAULT_TASK: Task = {
+// make title required and add optional property for possible related (parent) task
+export type IssueTask = Partial<Task> & {
+  title: string;
+  related_to?: string;
+};
+
+export const DEFAULT_TASK: Omit<TaskCopy, 'projectId'> = {
   id: '',
   subTaskIds: [],
   timeSpentOnDay: {},
@@ -162,8 +175,6 @@ export interface TaskState extends EntityState<Task> {
   taskDetailTargetPanel?: TaskDetailTargetPanel | null;
   lastCurrentTaskId: string | null;
   isDataLoaded: boolean;
-
-  [MODEL_VERSION_KEY]?: number;
 }
 
 export interface WorklogTask extends Task {

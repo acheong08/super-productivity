@@ -1,7 +1,6 @@
 import { EntityState } from '@ngrx/entity';
 // import { Label, SingleDataSet } from 'ng2-charts';
 import { ChartData } from 'chart.js';
-import { MODEL_VERSION_KEY } from '../../app.constants';
 
 export interface MetricCopy {
   // string date of day
@@ -11,15 +10,13 @@ export interface MetricCopy {
   obstructions: string[];
   improvements: string[];
   improvementsTomorrow: string[];
-  mood?: number;
-  productivity?: number;
+  mood?: number | null;
+  productivity?: number | null;
 }
 
 export type Metric = Readonly<MetricCopy>;
 
-export interface MetricState extends EntityState<Metric> {
-  [MODEL_VERSION_KEY]?: number;
-}
+export type MetricState = EntityState<Metric>;
 
 export type PieChartData = ChartData<'pie', number[], string>;
 export type LineChartData = ChartData<'line', (number | undefined)[], string>;

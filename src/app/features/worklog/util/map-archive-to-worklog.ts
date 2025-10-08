@@ -2,7 +2,6 @@ import { EntityState } from '@ngrx/entity';
 import { Task } from '../../tasks/task.model';
 import { getWeeksInMonth } from '../../../util/get-weeks-in-month';
 import { getWeekNumber } from '../../../util/get-week-number';
-import moment from 'moment';
 import {
   Worklog,
   WorklogDataForDay,
@@ -11,8 +10,9 @@ import {
   WorklogWeek,
   WorklogYear,
 } from '../worklog.model';
-import { getWorklogStr } from '../../../util/get-work-log-str';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 import { WorkStartEnd } from '../../work-context/work-context.model';
+import { formatDayStr } from '../../../util/format-day-str';
 
 // Provides defaults to display tasks without time spent on them
 const _getTimeSpentOnDay = (entities: any, task: Task): { [key: string]: number } => {
@@ -25,10 +25,10 @@ const _getTimeSpentOnDay = (entities: any, task: Task): { [key: string]: number 
     const parentLogEntryDate =
       parentSpentOnDay &&
       (Object.keys(parentSpentOnDay)[0] ||
-        getWorklogStr(entities[task.parentId].doneOn || entities[task.parentId].created));
+        getDbDateStr(entities[task.parentId].doneOn || entities[task.parentId].created));
     return { [parentLogEntryDate]: 1 };
   } else {
-    return { [getWorklogStr(task.doneOn || task.created)]: 1 };
+    return { [getDbDateStr(task.doneOn || task.created)]: 1 };
   }
 };
 
@@ -37,6 +37,7 @@ export const mapArchiveToWorklog = (
   noRestoreIds: string[] = [],
   startEnd: { workStart: WorkStartEnd; workEnd: WorkStartEnd },
   firstDayOfWeek: number = 1,
+  locale: string,
 ): { worklog: Worklog; totalTimeSpent: number } => {
   const entities = taskState.entities;
   const worklog: Worklog = {};
@@ -71,7 +72,7 @@ export const mapArchiveToWorklog = (
           timeSpent: 0,
           logEntries: [],
           dateStr,
-          dayStr: moment(dateStr).format('ddd'),
+          dayStr: formatDayStr(dateStr, locale),
           workStart: startEnd.workStart && startEnd.workStart[dateStr],
           workEnd: startEnd.workEnd && startEnd.workEnd[dateStr],
         };

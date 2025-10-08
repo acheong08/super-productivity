@@ -1,33 +1,26 @@
 import { inject, LOCALE_ID, Pipe, PipeTransform } from '@angular/core';
-import { isWorklogStr } from '../../util/get-work-log-str';
+import { isDBDateStr } from '../../util/get-db-date-str';
 import { dateStrToUtcDate } from '../../util/date-str-to-utc-date';
+import { formatMonthDay } from '../../util/format-month-day.util';
+import { DateTimeFormatService } from '../../core/date-time-format/date-time-format.service';
 
 @Pipe({ name: 'shortDate2' })
 export class ShortDate2Pipe implements PipeTransform {
-  private locale = inject(LOCALE_ID);
+  private _dateTimeFormatService = inject(DateTimeFormatService);
+  private _defaultLocale = inject(LOCALE_ID);
 
-  transform(value: number | string | null, ...args: unknown[]): string | null {
+  transform(value?: number | string | null, ...args: unknown[]): string | null {
     if (typeof value !== 'number' && typeof value !== 'string') {
       return null;
     }
 
-    const locale = this.locale;
-
     const date =
-      typeof value === 'string' && isWorklogStr(value)
+      typeof value === 'string' && isDBDateStr(value)
         ? dateStrToUtcDate(value)
         : new Date(value);
 
-    const str = `${date.toLocaleDateString(locale, {
-      month: 'numeric',
-      day: 'numeric',
-    })}`;
-
-    const lastChar = str.slice(-1);
-
-    if (lastChar === '.') {
-      return str.slice(0, -1);
-    }
-    return str;
+    // Use the configured locale if available, otherwise fall back to default
+    const locale = this._dateTimeFormatService.currentLocale || this._defaultLocale;
+    return formatMonthDay(date, locale);
   }
 }

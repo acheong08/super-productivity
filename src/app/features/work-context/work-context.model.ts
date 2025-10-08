@@ -44,7 +44,7 @@ export type WorkContextAdvancedCfg = Readonly<{
 // TODO handle more strictly
 export type WorkContextThemeCfg = Readonly<{
   isAutoContrast?: boolean;
-  isDisableBackgroundGradient?: boolean;
+  isDisableBackgroundTint?: boolean;
   primary?: string;
   huePrimary?: HueValue;
   accent?: string;
@@ -63,17 +63,13 @@ export enum WorkContextType {
 export interface WorkContextCommon {
   advancedCfg: WorkContextAdvancedCfg;
   theme: WorkContextThemeCfg;
-  icon: string | null;
+  icon?: string | null;
   taskIds: string[];
   id: string;
   title: string;
 
-  // TODO remove legacy
-  // breakTime?: BreakTime;
-  // breakNr?: BreakNr;
-  // workStart?: WorkStartEnd;
-  // workEnd?: WorkStartEnd;
   // to make it simpler for validation
+  // TODO remove legacy
   breakTime?: any;
   breakNr?: any;
   workStart?: any;
@@ -83,7 +79,7 @@ export interface WorkContextCommon {
 export type WorkContextAdvancedCfgKey = keyof WorkContextAdvancedCfg;
 
 export interface WorkContextCopy extends WorkContextCommon {
-  icon: string | null;
+  icon?: string | null;
   routerLink: string;
   isEnableBacklog?: boolean;
   backlogTaskIds?: string[];

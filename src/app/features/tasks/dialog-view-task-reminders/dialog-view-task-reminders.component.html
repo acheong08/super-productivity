@@ -16,6 +16,12 @@
       @for (task of tasks; track trackById($index, task)) {
         <div class="task">
           <div class="title-wrapper">
+            <div
+              class="due-for"
+              [class.emphasized]="(task.dueWithTime || 0) < overdueThreshold"
+            >
+              {{ task.dueWithTime | date: 'short' }}
+            </div>
             <div class="title">{{ task.title }}</div>
             <tag-list
               [isShowProjectTagAlways]="true"
@@ -27,13 +33,13 @@
               <button
                 [disabled]="!(task.projectId || task.parentId || task.tagIds.length > 0)"
                 (click)="dismiss(task)"
-                [title]="T.G.DISMISS | translate"
+                [title]="T.F.TASK.D_REMINDER_VIEW.UNSCHEDULE | translate"
                 class="hide-xs"
                 color=""
                 mat-icon-button
                 type="button"
               >
-                <mat-icon>alarm_off</mat-icon>
+                <mat-icon>event_busy</mat-icon>
               </button>
               <button
                 (dblclick)="snooze(task, 10)"
@@ -77,11 +83,11 @@
                   {{ T.G.MINUTES | translate: { m: 60 } }}
                 </button>
                 <button
-                  (click)="rescheduleUntilTomorrow(task)"
+                  (click)="planForTomorrow(task)"
                   [disabled]="isDisableControls"
                   mat-menu-item
                 >
-                  <mat-icon>schedule</mat-icon>
+                  <mat-icon>today</mat-icon>
                   {{ T.F.TASK.D_REMINDER_VIEW.RESCHEDULE_UNTIL_TOMORROW | translate }}
                 </button>
                 <button
@@ -91,8 +97,15 @@
                   (click)="dismiss(task)"
                   mat-menu-item
                 >
+                  <mat-icon>event_busy</mat-icon>
+                  {{ T.F.TASK.D_REMINDER_VIEW.UNSCHEDULE | translate }}
+                </button>
+                <button
+                  (click)="dismissReminderOnly(task)"
+                  mat-menu-item
+                >
                   <mat-icon>alarm_off</mat-icon>
-                  {{ T.G.DISMISS | translate }}
+                  {{ T.F.TASK.D_REMINDER_VIEW.DISMISS_REMINDER_KEEP_TODAY | translate }}
                 </button>
                 <button
                   (click)="editReminder(task)"
@@ -199,7 +212,7 @@
       [disabled]="isDisableControls"
       mat-menu-item
     >
-      <mat-icon>schedule</mat-icon>
+      <mat-icon>today</mat-icon>
       {{ T.F.TASK.D_REMINDER_VIEW.RESCHEDULE_UNTIL_TOMORROW | translate }}
     </button>
     @if (!isMultiple) {
@@ -216,8 +229,26 @@
       [disabled]="isDisableControls"
       mat-menu-item
     >
+      <mat-icon>event_busy</mat-icon>
+      {{
+        (isMultiple
+          ? T.F.TASK.D_REMINDER_VIEW.UNSCHEDULE_ALL
+          : T.F.TASK.D_REMINDER_VIEW.UNSCHEDULE
+        ) | translate
+      }}
+    </button>
+    <button
+      (click)="dismissAllRemindersOnly()"
+      [disabled]="isDisableControls"
+      mat-menu-item
+    >
       <mat-icon>alarm_off</mat-icon>
-      {{ (isMultiple ? T.F.TASK.D_REMINDER_VIEW.DISMISS_ALL : T.G.DISMISS) | translate }}
+      {{
+        (isMultiple
+          ? T.F.TASK.D_REMINDER_VIEW.DISMISS_ALL_REMINDERS_KEEP_TODAY
+          : T.F.TASK.D_REMINDER_VIEW.DISMISS_REMINDER_KEEP_TODAY
+        ) | translate
+      }}
     </button>
   </mat-menu>
 }

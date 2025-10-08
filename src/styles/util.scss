@@ -1,4 +1,4 @@
-@import 'mixins/media-queries';
+@use './mixins/_media-queries';
 
 .center-wrapper {
   display: flex;
@@ -13,7 +13,7 @@
 }
 
 .mw {
-  max-width: $component-max-width;
+  max-width: var(--component-max-width);
   margin: auto;
 }
 
@@ -22,19 +22,19 @@
 }
 
 .hide-xs {
-  @include mq(xs, max) {
+  @include media-queries.mq(xs, max) {
     display: none !important;
   }
 }
 
 .hide-xxs {
-  @include mq(xxs, max) {
+  @include media-queries.mq(xxs, max) {
     display: none !important;
   }
 }
 
 .hide-xxxs {
-  @include mq(xxxs, max) {
+  @include media-queries.mq(xxxs, max) {
     display: none !important;
   }
 }
@@ -64,19 +64,19 @@
 }
 
 .show-xs-only {
-  @include mq(xs) {
+  @include media-queries.mq(xs) {
     display: none !important;
   }
 }
 
 .hide-gt-sm {
-  @include mq(sm, max) {
+  @include media-queries.mq(sm, max) {
     display: none !important;
   }
 }
 
 .show-gt-sm-only {
-  @include mq(sm) {
+  @include media-queries.mq(sm) {
     display: none !important;
   }
 }
@@ -98,13 +98,35 @@
 }
 
 .show-dark-only {
-  @include lightTheme(true) {
-    display: none !important;
-  }
+  display: none !important;
+}
+
+body.isDarkTheme .show-dark-only {
+  display: block !important;
 }
 
 .show-light-only {
-  @include darkTheme(true) {
-    display: none !important;
-  }
+  display: block !important;
+}
+
+body.isDarkTheme .show-light-only {
+  display: none !important;
+}
+
+.mt2 {
+  margin-top: 16px;
+}
+
+.mt3 {
+  margin-top: 24px;
+}
+
+.block {
+  display: block;
+}
+
+.milk-glass {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%); // Safari support
 }

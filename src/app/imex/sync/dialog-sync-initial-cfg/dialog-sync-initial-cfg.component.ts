@@ -19,6 +19,7 @@ import { SyncWrapperService } from '../sync-wrapper.service';
 import { Subscription } from 'rxjs';
 import { first } from 'rxjs/operators';
 import { SyncProviderId } from '../../../pfapi/api';
+import { SyncLog } from '../../../core/log';
 
 @Component({
   selector: 'dialog-sync-initial-cfg',
@@ -44,7 +45,14 @@ export class DialogSyncInitialCfgComponent {
   isWasEnabled = signal(false);
   fields = signal([...SYNC_FORM.items!.filter((f) => f.key !== 'isEnabled')]);
   form = new FormGroup({});
-  _tmpUpdatedCfg?: SyncConfig;
+  _tmpUpdatedCfg: SyncConfig = {
+    isEnabled: true,
+    syncProvider: null,
+    syncInterval: 300000,
+    encryptKey: '',
+    localFileSync: {},
+    webDav: {},
+  };
 
   private _matDialogRef =
     inject<MatDialogRef<DialogSyncInitialCfgComponent>>(MatDialogRef);
@@ -71,24 +79,28 @@ export class DialogSyncInitialCfgComponent {
   }
 
   async save(): Promise<void> {
-    if (this._tmpUpdatedCfg) {
-      await this.syncConfigService.updateSettingsFromForm(
-        {
-          ...this._tmpUpdatedCfg,
-          isEnabled: this._tmpUpdatedCfg.isEnabled || !this.isWasEnabled(),
-        },
-        true,
-      );
-      if (this._tmpUpdatedCfg.syncProvider && this._tmpUpdatedCfg.isEnabled) {
-        this.syncWrapperService.configuredAuthForSyncProviderIfNecessary(
-          this._tmpUpdatedCfg.syncProvider as unknown as SyncProviderId,
-        );
-      }
-
-      this._matDialogRef.close();
-    } else {
-      throw new Error('No tmpCfg');
+    // Check if form is valid
+    if (!this.form.valid) {
+      // Mark all fields as touched to show validation errors
+      this.form.markAllAsTouched();
+      SyncLog.err('Sync form validation failed', this.form.errors);
+      return;
     }
+
+    await this.syncConfigService.updateSettingsFromForm(
+      {
+        ...this._tmpUpdatedCfg,
+        isEnabled: this._tmpUpdatedCfg.isEnabled || !this.isWasEnabled(),
+      },
+      true,
+    );
+    if (this._tmpUpdatedCfg.syncProvider && this._tmpUpdatedCfg.isEnabled) {
+      this.syncWrapperService.configuredAuthForSyncProviderIfNecessary(
+        this._tmpUpdatedCfg.syncProvider as unknown as SyncProviderId,
+      );
+    }
+
+    this._matDialogRef.close();
   }
 
   updateTmpCfg(cfg: SyncConfig): void {

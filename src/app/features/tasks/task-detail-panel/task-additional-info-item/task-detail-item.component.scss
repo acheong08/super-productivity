@@ -1,4 +1,4 @@
-@import '../../../../../variables';
+@use '../../../../../styles/_globals.scss' as *;
 
 :host {
   display: block;
@@ -7,103 +7,96 @@
     outline: none;
   }
 
-  &::ng-deep task ::ng-deep {
-    margin: 2px;
+  &.color-warn .input-item__value {
+    color: var(--c-warn) !important;
+    font-weight: bold;
+  }
+}
 
-    .parent-title {
-      display: none;
+// Flatten deep nesting
+:host::ng-deep task {
+  margin: 2px;
+
+  .parent-title,
+  tag-list,
+  .drag-handle {
+    display: none;
+  }
+
+  .title-and-tags-wrapper {
+    margin-left: var(--s2);
+  }
+
+  // TODO check
+  .box {
+    @include lightTheme {
+      border-color: var(--extra-border-color);
+      bottom: 0;
+      top: -1px;
     }
-
-    tag-list {
-      display: none;
-    }
-
-    .drag-handle {
-      // since not draggable
-      display: none;
-    }
-
-    .title-and-tags-wrapper {
-      margin-left: $s * 2;
-    }
-
-    .box {
-      @include lightTheme {
-        border-color: $light-theme-extra-border-color;
-        bottom: 0;
-        top: -1px;
-      }
-
-      @include darkTheme {
-        box-shadow: $whiteframe-shadow-1dp;
-        background: $dark16 !important;
-      }
+    @include darkTheme {
+      box-shadow: var(--whiteframe-shadow-1dp);
+      background: var(--dark16) !important;
     }
   }
 }
 
 // SHARED
-// ------
 .input-item,
-.mat-expansion-panel {
-  box-shadow: none;
-  //overflow: inherit !important;
-  border-width: 1px;
-  border-style: solid;
-  margin: 8px;
-  border-radius: $card-border-radius * 1;
-  //overflow: visible;
-  border-color: transparent;
+.mat-expansion-panel,
+:host::ng-deep .mat-expansion-panel:not([class*='mat-elevation-z']) {
+  box-shadow: var(--task-detail-shadow);
 
-  :host-context(.isNoTouchOnly):focus & {
-    border: 1px solid $c-focus-border;
-    border-color: $c-focus-border !important;
-  }
-
-  &,
-  ::ng-deep & .mat-expansion-panel-header {
-    font-size: 14px;
-  }
-
-  ::ng-deep & .mat-expansion-panel-header-title {
-    ::ng-deep mat-icon:first-of-type {
-      margin-right: $s;
-    }
-  }
-
-  @include darkTheme() {
-    background: $dark10;
-    box-shadow: $whiteframe-shadow-1dp;
-    //border-color: $dark-theme-separator-color;
-  }
-  @include lightTheme {
-    background: #fff;
-    border-color: $light-theme-extra-border-color;
-    //border-color: $light-theme-separator-color;
+  @include mq(xs, max) {
+    box-shadow: none;
+    border: 1px solid var(--extra-border-color) !important;
   }
 }
 
-mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
-.input-item.standard-size {
-  &:hover,
-  &:focus {
-    :host-context(.isNoTouchOnly.isLightTheme) & {
-      background: #eee;
-    }
+.input-item,
+.mat-expansion-panel {
+  border: 1px solid transparent;
+  margin: 8px;
+  border-radius: var(--card-border-radius);
+  background: var(--task-detail-bg);
+  font-size: 14px;
 
-    :host-context(.isNoTouchOnly.isDarkTheme) & {
-      background: $dark-theme-bg-lightest;
+  :host-context(.isNoTouchOnly):focus & {
+    border-color: var(--palette-primary-400) !important;
+  }
+}
+
+.mat-expansion-panel::ng-deep .mat-expansion-panel-header {
+  font-size: 14px;
+
+  &-title mat-icon:first-of-type {
+    margin-right: var(--s);
+  }
+}
+
+// Consolidate hover states
+:host-context(.isNoTouchOnly.isLightTheme) {
+  mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
+  .input-item.standard-size {
+    &:hover,
+    &:focus {
+      background: var(--task-detail-bg-hover);
+    }
+  }
+}
+
+:host-context(.isNoTouchOnly.isDarkTheme) {
+  mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
+  .input-item.standard-size {
+    &:hover,
+    &:focus {
+      background: var(--task-detail-bg-hover);
     }
   }
 }
 
 // PANEL
-// -----
 :host::ng-deep {
-  .mat-expansion-panel:not([class*='mat-elevation-z']) {
-    box-shadow: none;
-  }
-
   .mat-expansion-panel-body {
     padding: 0;
   }
@@ -111,65 +104,56 @@ mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
   .mat-expansion-panel-header {
     position: sticky;
     top: 0;
-  }
 
-  .mat-expansion-panel-header-title {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    //min-width: 130px;
-  }
-
-  .mat-expansion-panel-header-description {
-    text-align: right;
-
-    > * {
-      margin-left: auto;
+    &-title {
+      flex: 1;
       display: flex;
       align-items: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    &-description {
+      text-align: right;
+
+      > * {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+      }
     }
   }
 }
 
 .panel-content-wrapper {
-  margin: 0 $s $s;
+  margin: 0 var(--s) var(--s);
   display: block;
-  @include standardThemeTextColorLessIntense();
+  color: var(--text-color-less-intense);
+}
 
-  &::ng-deep inline-markdown {
-    &.isFocused {
-      border-color: transparent;
-    }
+.panel-content-wrapper::ng-deep inline-markdown {
+  &.isFocused {
+    border-color: transparent;
+  }
 
-    .markdown-wrapper {
-      min-height: 60px;
-      border-radius: $card-border-radius * 1;
-      overflow: visible !important;
-      transition: $transition-standard;
+  .markdown-wrapper {
+    min-height: 60px;
+    border-radius: var(--card-border-radius);
+    overflow: visible !important;
+    transition: var(--transition-standard);
+  }
 
-      @include lightTheme {
-        background: $light-theme-bg;
-        //border: 1px solid $light-theme-extra-border-color;
-      }
-      @include darkTheme() {
-        border-radius: $card-border-radius;
-        background: $dark-theme-bg-lightest;
-        box-shadow: $whiteframe-shadow-1dp;
-      }
-    }
+  &.isFocused .markdown-wrapper {
+    box-shadow: var(--whiteframe-shadow-3dp) !important;
+  }
 
-    &.isFocused .markdown-wrapper {
-      box-shadow: $whiteframe-shadow-3dp !important;
-      border-color: transparent;
-    }
+  .markdown-unparsed,
+  .markdown-parsed {
+    background: var(--bg-lightest);
+    color: inherit;
 
-    .markdown-unparsed,
-    .markdown-parsed {
-      color: inherit;
-      background-color: inherit;
+    @include lightTheme() {
+      border: 1px solid var(--extra-border-color);
     }
   }
 }
@@ -183,21 +167,17 @@ mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
 
 .ripple {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: 0;
+  inset: 0;
 }
 
 // Input-Item
-// ----------
 .input-item {
   position: relative;
   display: flex;
   align-items: center;
   height: 48px;
   cursor: pointer;
-  color: $light-theme-text-color;
+  color: var(--text-color);
 
   &.full-size {
     height: auto;
@@ -206,22 +186,13 @@ mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
     cursor: default;
   }
 
-  @include darkTheme() {
-    color: $dark-theme-text-color;
-  }
-
   &.--estimate {
     progress-bar {
-      @include lightTheme() {
-        background: $light-theme-extra-border-color;
-      }
-      @include darkTheme() {
-        background: $dark-theme-extra-border-color;
-      }
+      background: var(--extra-border-color);
     }
 
     &:hover progress-bar {
-      background: $c-accent !important;
+      background: var(--c-accent) !important;
     }
   }
 }
@@ -229,14 +200,14 @@ mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
 .input-item__title {
   display: flex;
   align-items: center;
-  margin: 0 $s * 3;
+  margin: 0 var(--s3);
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 90px;
-  flex-grow: 1;
+  flex: 1;
 
   ::ng-deep mat-icon:first-of-type {
-    margin-right: $s;
+    margin-right: var(--s);
   }
 
   .full-size & {
@@ -249,22 +220,10 @@ mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
 
 .input-item__value {
   text-align: right;
-  flex-grow: 0;
   display: flex;
   align-items: center;
-  margin-right: $s * 3;
-
-  .full-size & {
-    min-width: 40px;
-    flex-grow: 1;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    min-height: 48px;
-
-    > * {
-      display: block;
-    }
-  }
+  margin-right: var(--s3);
+  color: var(--task-detail-value-color);
 
   &,
   ::ng-deep span {
@@ -273,41 +232,31 @@ mat-expansion-panel::ng-deep .mat-expansion-panel-header:not(.mat-expanded),
     white-space: nowrap;
   }
 
-  // TODO find out if still needed
-  //::ng-deep mat-icon {
-  //  margin-right: $s;
-  //  font-size: 32px;
-  //  height: 32px;
-  //  width: 32px;
-  //}
-
-  @include lightTheme() {
-    color: rgba(
-      var(--palette-foreground-secondary-text),
-      var(--palette-foreground-secondary-text-alpha, 1)
-    );
-  }
-
-  @include darkTheme() {
-    color: rgba(255, 255, 255, 0.7);
-  }
-
   > * {
-    flex-grow: 1;
+    flex: 1;
     margin-left: auto;
     text-align: right;
     display: inline-block;
   }
+
+  .full-size & {
+    min-width: 40px;
+    flex: 1;
+    padding: 4px 0;
+    min-height: 48px;
+
+    > * {
+      display: block;
+    }
+  }
 }
 
 .input-item__edit-btn {
-  //opacity: 0;
-  margin-left: $s * -3;
-  margin-right: $s;
+  margin-left: calc(-1 * var(--s3));
+  margin-right: var(--s);
   display: none !important;
 
   .input-item:hover & {
-    //opacity: 1;
     display: block !important;
   }
 }

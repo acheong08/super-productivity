@@ -13,11 +13,12 @@ import {
   mapOpenProjectIssueFull,
   mapOpenProjectIssueReduced,
   mapOpenProjectIssueToSearchResult,
-} from './open-project-issue/open-project-issue-map.util';
+} from './open-project-issue-map.util';
 import {
+  OpenProjectAttachment,
   OpenProjectWorkPackage,
   OpenProjectWorkPackageReduced,
-} from './open-project-issue/open-project-issue.model';
+} from './open-project-issue.model';
 import { SearchResultItem } from '../../issue.model';
 import { T } from '../../../../t.const';
 import { throwHandledError } from '../../../../util/throw-handled-error';
@@ -230,6 +231,31 @@ export class OpenProjectApiService {
     );
   }
 
+  uploadAttachment$(
+    cfg: OpenProjectCfg,
+    workPackageId: number | string,
+    file: File,
+    title: string,
+  ): Observable<OpenProjectAttachment> {
+    const formData = new FormData();
+    formData.append('metadata', JSON.stringify({ fileName: title }));
+    formData.append('file', file, file.name);
+
+    return this._sendRequest$(
+      {
+        method: 'POST',
+        url: `${cfg.host}/api/v3/work_packages/${workPackageId}/attachments`,
+        data: formData,
+        // NOTE: By passing an empty object for headers, we ensure that
+        // _sendRequest$ does not set a default Content-Type, allowing
+        // Angular's HttpClient to correctly set it for FormData (multipart/form-data with boundary).
+        // The Authorization header will still be added by _sendRequest$ if a token is present.
+        headers: {},
+      },
+      cfg,
+    ).pipe(map((res) => res as OpenProjectAttachment));
+  }
+
   private _getScopeParamFilter(cfg: OpenProjectCfg): any[] {
     if (!cfg.scope) {
       return [];
@@ -296,7 +322,7 @@ export class OpenProjectApiService {
     ];
     const req = new HttpRequest(p.method, p.url, ...allArgs);
     return this._http.request(req).pipe(
-      // TODO remove type: 0 @see https://brianflove.com/2018/09/03/angular-http-client-observe-response/
+      // Filter out HttpEventType.Sent (type: 0) events to only process actual responses
       filter((res) => !(res === Object(res) && res.type === 0)),
       map((res: any) => (res && res.body ? res.body : res)),
       catchError((err) =>

@@ -20,6 +20,7 @@ import { StringToMsPipe } from './string-to-ms.pipe';
 import { MsToStringPipe } from './ms-to-string.pipe';
 import { TranslateService } from '@ngx-translate/core';
 import { T } from 'src/app/t.const';
+import { processDurationInput } from './duration-input.util';
 
 @Directive({
   selector: 'input[inputDuration]',
@@ -87,11 +88,11 @@ export class InputDurationDirective implements ControlValueAccessor, Validator, 
     this._formatDisplayValue();
   }
 
-  registerOnChange(fn: any): void {
+  registerOnChange(fn: (value: number | null) => void): void {
     this._onChange = fn;
   }
 
-  registerOnTouched(fn: any): void {
+  registerOnTouched(fn: () => void): void {
     this._onTouched = fn;
   }
 
@@ -112,13 +113,16 @@ export class InputDurationDirective implements ControlValueAccessor, Validator, 
 
     // Apply external validator if available
     // if (this._validator) {
-    //   console.log(this._validator(control), this._validator);
+    //   Log.log(this._validator(control), this._validator);
     //   return this._validator(control);
     // }
 
     // Apply built-in validation
     const value = control.value;
-    if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
+
+    // For duration fields, we only validate that the value is a valid number
+    // 0 is a valid duration (0 minutes, 0 hours, etc.)
+    if (value === null || value === undefined || Number.isNaN(value)) {
       return {
         duration: {
           invalid: true,
@@ -131,27 +135,22 @@ export class InputDurationDirective implements ControlValueAccessor, Validator, 
   }
 
   private _processInput(strVal: string): void {
-    try {
-      // Convert input string to milliseconds
-      const ms = strVal ? this._strToMs(strVal) : 0;
+    const result = processDurationInput(
+      strVal,
+      this.isAllowSeconds(),
+      this._previousMsValue,
+    );
 
-      // don't interrupt typing for input without unit e.g. "32", "2h 32"
-      if (strVal !== this._msToStr(ms)) {
-        return;
-      }
-
-      // Update internal state and notify form control
-      this._msValue = ms;
-      if (!this._previousMsValue || this._previousMsValue !== this._msValue) {
-        this._onChange(ms);
-      }
-      this._previousMsValue = this._msValue;
-    } catch (err) {
-      // If parsing fails, set to null
-      console.error('Error parsing duration:', err);
-      this._msValue = null;
-      this._onChange(null);
+    if (!result.shouldUpdate) {
+      return;
     }
+
+    // Update internal state and notify form control
+    this._msValue = result.milliseconds;
+    if (!this._previousMsValue || this._previousMsValue !== this._msValue) {
+      this._onChange(result.milliseconds);
+    }
+    this._previousMsValue = this._msValue;
   }
 
   private _strToMs(str: string): number {

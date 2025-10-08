@@ -1,5 +1,6 @@
 @use 'angular-material-css-vars' as mat-css-vars;
-@import '../_variables.scss';
+@use '../_common';
+@use './mixins/media-queries';
 
 html,
 body,
@@ -7,13 +8,12 @@ app-root,
 .app-frame {
   overflow: hidden;
   margin: 0;
+  /* stylelint-disable-next-line no-duplicate-selectors */
   height: 100%;
   height: -webkit-fill-available;
   box-sizing: border-box;
-  //font-family: 'Montserrat', 'Roboto', sans-serif;
-  //font-family: 'Open Sans', sans-serif;
-  //font-family: 'Roboto', sans-serif;
-  font-family: 'Roboto', 'Comic Sans MS', sans-serif;
+  font-optical-sizing: auto;
+  font-family: 'Open Sans', sans-serif;
 }
 
 html {
@@ -48,53 +48,41 @@ body {
     opacity: 0;
   }
 
-  &.isEnabledBackgroundGradient {
+  &.isLightTheme {
+    color: var(--text-color);
+    background: var(--bg);
+
     &:before {
       display: block;
       opacity: 1;
-    }
-  }
-
-  &.isLightTheme {
-    color: $light-theme-text-color;
-    background: $light-theme-bg;
-
-    &.isDisableBackgroundGradient {
-      background: $light-theme-bg;
-      //&:before {
-      //  display: block;
-      //  opacity: .3;
-      //  background: mat-css-vars.mat-css-color(50, 1);
-      //}
-    }
-
-    &:before {
       filter: saturate(0.8);
-      background: linear-gradient(
-        180deg,
-        mat-css-vars.mat-css-color(100, 1) 0%,
-        mat-css-vars.mat-css-color(50, 1) 140px,
-        $light-theme-bg 100%
-      );
+      background: mat-css-vars.mat-css-color(50, 1);
+    }
+    &.isDisableBackgroundTint {
+      background: var(--bg);
+      &:before {
+        display: none;
+        opacity: 0;
+      }
     }
   }
 
   &.isDarkTheme {
-    color: $dark-theme-text-color;
-    background: #000;
-
-    &.isDisableBackgroundGradient {
-      background: $dark-theme-bg;
-    }
+    color: var(--text-color);
+    background: var(--bg);
 
     &:before {
-      filter: saturate(0.8);
-      background: linear-gradient(
-        180deg,
-        mat-css-vars.mat-css-color(800, 0.35) 0%,
-        mat-css-vars.mat-css-color(900, 0.1) 140px,
-        mat-css-vars.mat-css-color(900, 0.02) 100%
-      );
+      display: block;
+      opacity: 1;
+      filter: brightness(0.1);
+      background: mat-css-vars.mat-css-color(900, 1);
+    }
+    &.isDisableBackgroundTint {
+      background: var(--bg);
+      &:before {
+        display: none;
+        opacity: 0;
+      }
     }
   }
 
@@ -107,40 +95,40 @@ body {
 }
 
 .page-wrapper {
-  padding: $s $s $s * 9;
+  padding: var(--s) var(--s) calc(var(--s) * 9);
 
-  @include mq(xs) {
-    padding: $s 2 * $s $s * 9;
+  @include media-queries.mq(xs) {
+    padding: var(--s) var(--s2) calc(var(--s) * 9);
   }
 }
 
 .component-wrapper {
-  max-width: $component-max-width;
+  max-width: var(--component-max-width);
   margin: auto;
 }
 
 .task-list-wrapper {
-  padding: 0 0 $s * 7;
+  padding: 0 var(--s) var(--s7);
   // for a little bit of extra space for 800 width
-  max-width: #{$component-max-width - 40};
+  max-width: calc(var(--component-max-width) - 40px);
   margin: auto;
 
-  @include mq(xxs) {
-    padding: 0 $s * 1 $s * 7;
+  @include media-queries.mq(xxs) {
+    padding: 0 var(--s) var(--s7);
   }
 
-  @include mq(xs) {
-    padding: 0 $s * 1.5 $s * 7;
+  @include media-queries.mq(xs) {
+    padding: 0 calc(var(--s) * 1.5) var(--s7);
   }
 
-  @include mq(sm) {
-    padding: 0 3 * $s $s * 7;
-    max-width: $component-max-width;
+  @include media-queries.mq(sm) {
+    padding: 0 var(--s3) var(--s7);
+    max-width: var(--component-max-width);
   }
 
-  @include mq(lg) {
-    padding: 0 3 * $s $s * 7;
-    max-width: $component-max-width + 100;
+  @include media-queries.mq(lg) {
+    padding: 0 var(--s3) var(--s7);
+    max-width: calc(var(--component-max-width) + 100px);
   }
 
   improvement-banner + & {
@@ -149,13 +137,13 @@ body {
 }
 
 blockquote {
-  border-left: 4px solid rgba(var(--palette-accent-500), 1);
+  border-left: 4px solid rgba(var(--c-accent), 1);
   margin: 20px 0;
   padding: 1px 20px;
 }
 
 a[href] {
-  color: $c-accent;
+  color: var(--c-accent);
 }
 
 *,
@@ -175,12 +163,12 @@ img {
 * {
   --scrollbar-width: thin;
   --scrollbar-width-legacy: 4px;
-  --scrollbar-color-thumb: #888;
-  --scrollbar-color-track: #f1f1f1;
+  --scrollbar-color-thumb: var(--scrollbar-thumb);
+  --scrollbar-color-track: var(--scrollbar-track);
 
   .isDarkTheme & {
-    --scrollbar-color-thumb: #333;
-    --scrollbar-color-track: #222;
+    --scrollbar-color-thumb: var(--scrollbar-thumb);
+    --scrollbar-color-track: var(--scrollbar-track);
   }
 
   /* Modern browsers with `scrollbar-*` support */

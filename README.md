@@ -1,5 +1,5 @@
 <a href="https://super-productivity.com/">
-  <img align="center" alt="Banner" src="screens/banner.png" />
+  <img align="center" alt="Banner" src="docs/screens/banner.png" />
 </a>
 
 <br>
@@ -28,8 +28,6 @@
 <br>
 
 [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://vshymanskyy.github.io/StandWithUkraine)
-
-
 
 <p align="center" style="text-align: center;">
 <a href="https://lbesson.mit-license.org">
@@ -75,6 +73,7 @@
   <img alt='Get it on Flathub'
        src='https://flathub.org/api/badge?locale=en'
        align="center"
+       style="height: 50px"
        height="50" />
   </a>
   
@@ -82,36 +81,42 @@
   <img alt="Get it from the Snap Store"
        src="https://snapcraft.io/static/images/badges/en/snap-store-black.svg"
        align="center"
+       style="height: 50px"
        height="50">
 </a>
 <a href='//www.microsoft.com/store/apps/9NHFVG8361TW?cid=storebadge&ocid=badge' target="_blank">
   <img src='https://developer.microsoft.com/store/badges/images/English_get-it-from-MS.png'
        align="center"
        alt='English badge'
+       style="height: 50px"
        height="50" />
 </a>
 <a href='//apps.apple.com/de/app/super-productivity/id1482572463?l=en&mt=12' target="_blank">
-  <img src='./screens/app-store-badge.svg'
+  <img src='docs/screens/app-store-badge.svg'
        align="center"
        alt='App Store Badge'
+       style="height: 50px"
        height="50" />
 </a>
 <a href='//play.google.com/store/apps/details?id=com.superproductivity.superproductivity' target="_blank">
-  <img src='./screens/google-play-badge.png'
+  <img src='docs/screens/google-play-badge.png'
        align="center"
        alt='Play Store Badge'
+       style="height: 50px"
        height="50" />
 </a>
 <a href='//f-droid.org/en/packages/com.superproductivity.superproductivity' target="_blank">
   <img src='https://f-droid.org/assets/fdroid-logo-text_S0MUfk_FsnAYL7n2MQye-34IoSNm6QM6xYjDnMqkufo=.svg'
        align="center"
        alt='F-Droid Badge'
+       style="height: 50px"
        height="50" />
 </a>
 <a href='http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/johannesjo/super-productivity/releases'>
   <img src='https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png'
        align="center"
        alt='Obtanium Badge'
+       style="height: 50px"
        height="50" />
 </a>
 </p>
@@ -266,7 +271,7 @@ brew install --cask superproductivity
 ```
 
 <a href='//apps.apple.com/de/app/super-productivity/id1482572463?l=en&mt=12' target="_blank">
-  <img src='./screens/app-store-badge.svg'
+  <img src='docs/screens/app-store-badge.svg'
        alt='App Store Badge'
        height="50" />
 </a>
@@ -282,7 +287,7 @@ Stay tuned for even more exciting updates!
 You can find the Android app here:
 
 <a href='//play.google.com/store/apps/details?id=com.superproductivity.superproductivity' target="_blank">
-  <img src='./screens/google-play-badge.png'
+  <img src='docs/screens/google-play-badge.png'
        align="center"
        alt='App Store Badge'
        height="50" />
@@ -325,9 +330,13 @@ There are several ways to help.
 
 9. **[Sponsor the project](https://github.com/sponsors/johannesjo)**
 
+10. **[Create custom plugins](docs/plugin-development.md)**: Extend Super Productivity with your own features and integrations by developing custom plugins.
+
 ### Running the development server
 
-To run the development server you need to have Node installed at least in the version 14. Go to https://nodejs.org for installation instructions.
+If you don't want or cannot use Codespaces for any reason, here are the instructions for local development.
+
+To run the development server you need to have Node installed (version 20 or higher required). Go to https://nodejs.org for installation instructions.
 
 **Clone repo**
 
@@ -341,6 +350,8 @@ git clone https://github.com/johannesjo/super-productivity.git
 cd super-productivity
 npm i -g @angular/cli
 npm i
+# prepare the env file once
+npm run env
 ```
 
 **Run the dev server**
@@ -359,6 +370,14 @@ ng serve
 # in a new console tab
 npm start
 ```
+
+### :rocket: Try with GitHub Codespaces
+
+You can develop and run Super Productivity instantly in your browser using [GitHub Codespaces](https://github.com/features/codespaces): no need to install Node.js or any dependencies locally. On the top of the repository page, click on "Code", "Codespaces", and then on the plus button, "Create Codespace".
+
+Your VS Code settings can sync as usual, so your environment feels just like home. The development server starts automatically, and the dev container auto-forwards the port. Open the "Ports" tab and Ctrl+Click the available link to preview your running Super Productivity app.
+
+Further customizations to the Codespaces dev container can be performed by editing the .devcontainers/devcontainers.json file according to the [Codespaces documentation](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers#creating-a-custom-dev-container-configuration) and the [devcontainers full specification](https://containers.dev/implementors/spec/).
 
 ### Packaging the app
 
@@ -417,6 +436,10 @@ docker compose up -d
 
 Additionally to accessing the web app from your browser at `http://localhost`, you can set up WebDAV synchronization with base url `http://localhost/webdav/`.
 
+### Other configuration of docker container
+
+You can provide the default values for WebDAV settings in the "Sync" section of the "Settings" page, via setting some environment variables of the docker container. This could be used for single user instances. Check out `docker-compose.yaml` in this repository for available environment variables.
+
 ## Custom themes (desktop only)
 
 In addition to color coding your projects and tags and to the dark and light theme you can also load completely custom CSS to restyle everything. To load a custom theme you simply need to put them into a new file named `styles.css` directly in the [user data folder](#user-data-folder).
@@ -452,3 +475,19 @@ You can specify a custom folder for saving your data by starting the application
 ```bash
 superproductivity --user-data-dir=/path/to/my/data
 ```
+
+### Linux/Wayland Compatibility
+
+If you're experiencing issues running Super Productivity on Wayland (such as rendering problems, VSync errors, or GLib-GObject warnings), you can force the application to use X11 mode by starting it with the `--force-x11` parameter:
+
+```bash
+superproductivity --force-x11
+```
+
+This will automatically apply compatibility fixes including:
+
+- Forcing the Ozone platform to use X11 instead of Wayland
+- Disabling GPU VSync to prevent GetVSyncParametersIfAvailable() errors
+- Setting the appropriate environment variables for X11 compatibility
+
+The application will automatically detect Wayland sessions and apply these fixes, but you can use this flag if automatic detection doesn't work properly.

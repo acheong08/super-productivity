@@ -12,6 +12,8 @@ import {
 } from './task-attachment.actions';
 import { TaskState } from '../task.model';
 import { createFromDrop } from 'src/app/core/drop-paste-input/drop-paste-input';
+import { TaskLog } from '../../../core/log';
+import { isInputElement } from '../../../util/dom-element';
 
 @Injectable({
   providedIn: 'root',
@@ -22,7 +24,7 @@ export class TaskAttachmentService {
 
   addAttachment(taskId: string, taskAttachment: TaskAttachment): void {
     if (!taskAttachment) {
-      console.error('No valid attachment passed');
+      TaskLog.err('No valid attachment passed');
       return;
     }
 
@@ -49,15 +51,25 @@ export class TaskAttachmentService {
 
   // HANDLE INPUT
   // ------------
-  createFromDrop(ev: DragEvent, taskId: string): void {
-    this._handleInput(createFromDrop(ev) as DropPasteInput, ev, taskId);
+  createFromDrop(ev: DragEvent, taskId: string, isSkipTextareaCheck = false): void {
+    this._handleInput(
+      createFromDrop(ev) as DropPasteInput,
+      ev,
+      taskId,
+      isSkipTextareaCheck,
+    );
   }
 
   // createFromPaste(ev, taskId: string): void {
   //   this._handleInput(createFromPaste(ev), ev, taskId);
   // }
 
-  private _handleInput(attachment: DropPasteInput, ev: Event, taskId: string): void {
+  private _handleInput(
+    attachment: DropPasteInput,
+    ev: Event,
+    taskId: string,
+    isSkipTextareaCheck = false,
+  ): void {
     // properly not intentional so we leave
     if (!attachment || !attachment.path) {
       return;
@@ -65,13 +77,7 @@ export class TaskAttachmentService {
 
     // don't intervene with text inputs
     const targetEl = ev.target as HTMLElement;
-    if (
-      targetEl.tagName === 'INPUT' ||
-      (targetEl.tagName === 'TEXTAREA' &&
-        targetEl.parentElement?.tagName.toLowerCase() !== 'inline-multiline-input')
-    ) {
-      return;
-    }
+    if (!isSkipTextareaCheck && isInputElement(targetEl)) return;
 
     ev.preventDefault();
     ev.stopPropagation();

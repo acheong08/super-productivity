@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import {
   IssueData,
   IssueDataReduced,
@@ -8,7 +8,7 @@ import {
   SearchResultItemWithProviderId,
 } from './issue.model';
 import { TaskAttachment } from '../tasks/task-attachment/task-attachment.model';
-import { forkJoin, merge, Observable, of, Subject } from 'rxjs';
+import { forkJoin, from, merge, Observable, of, Subject } from 'rxjs';
 import {
   CALDAV_TYPE,
   GITEA_TYPE,
@@ -23,11 +23,12 @@ import {
   REDMINE_TYPE,
 } from './issue.const';
 import { TaskService } from '../tasks/task.service';
-import { Task, TaskCopy } from '../tasks/task.model';
+import { IssueTask, Task, TaskCopy } from '../tasks/task.model';
 import { IssueServiceInterface } from './issue-service-interface';
 import { JiraCommonInterfacesService } from './providers/jira/jira-common-interfaces.service';
 import { GithubCommonInterfacesService } from './providers/github/github-common-interfaces.service';
 import { catchError, map, switchMap } from 'rxjs/operators';
+import { IssueLog } from '../../core/log';
 import { GitlabCommonInterfacesService } from './providers/gitlab/gitlab-common-interfaces.service';
 import { CaldavCommonInterfacesService } from './providers/caldav/caldav-common-interfaces.service';
 import { OpenProjectCommonInterfacesService } from './providers/open-project/open-project-common-interfaces.service';
@@ -45,7 +46,9 @@ import { CalendarIntegrationService } from '../calendar-integration/calendar-int
 import { Store } from '@ngrx/store';
 import { selectEnabledIssueProviders } from './store/issue-provider.selectors';
 import { getErrorTxt } from '../../util/get-error-text';
+import { getDbDateStr } from '../../util/get-db-date-str';
 import { TODAY_TAG } from '../tag/tag.const';
+import typia from 'typia';
 
 @Injectable({
   providedIn: 'root',
@@ -79,54 +82,55 @@ export class IssueService {
     [ICAL_TYPE]: this._calendarCommonInterfaceService,
   };
 
-  // NOTE: in theory we might need to clean this up on project change, but it's unlikely to matter
-  ISSUE_REFRESH_MAP: { [key: string]: { [key: string]: Subject<IssueData> } } = {
-    [GITLAB_TYPE]: {},
-    [GITHUB_TYPE]: {},
-    [REDMINE_TYPE]: {},
-    [JIRA_TYPE]: {},
-    [CALDAV_TYPE]: {},
-    [OPEN_PROJECT_TYPE]: {},
-    [GITEA_TYPE]: {},
-    [REDMINE_TYPE]: {},
-    [ICAL_TYPE]: {},
-  };
+  ISSUE_REFRESH_MAP: {
+    [issueProviderId: string]: { [issueId: string]: Subject<IssueData> };
+  } = {};
 
-  testConnection$(issueProviderCfg: IssueProvider): Observable<boolean> {
-    return this.ISSUE_SERVICE_MAP[issueProviderCfg.issueProviderKey].testConnection$(
+  testConnection(issueProviderCfg: IssueProvider): Promise<boolean> {
+    return this.ISSUE_SERVICE_MAP[issueProviderCfg.issueProviderKey].testConnection(
       issueProviderCfg,
     );
   }
 
+  getById(
+    issueType: IssueProviderKey,
+    id: string | number,
+    issueProviderId: string,
+  ): Promise<IssueData | null> {
+    return this.ISSUE_SERVICE_MAP[issueType].getById(id, issueProviderId);
+  }
+
+  // Keep Observable version for components that need real-time updates via refresh
   getById$(
     issueType: IssueProviderKey,
     id: string | number,
     issueProviderId: string,
   ): Observable<IssueData | null> {
     // account for (manual) issue refreshing
-    if (!this.ISSUE_REFRESH_MAP[issueType][id]) {
-      this.ISSUE_REFRESH_MAP[issueType][id] = new Subject<IssueData>();
+    if (!this.ISSUE_REFRESH_MAP[issueProviderId]) {
+      this.ISSUE_REFRESH_MAP[issueProviderId] = {};
     }
-    return this.ISSUE_SERVICE_MAP[issueType]
-      .getById$(id, issueProviderId)
-      .pipe(
-        switchMap((issue) =>
-          merge<IssueData | null>(of(issue), this.ISSUE_REFRESH_MAP[issueType][id]),
-        ),
-      );
+    if (!this.ISSUE_REFRESH_MAP[issueProviderId][id]) {
+      this.ISSUE_REFRESH_MAP[issueProviderId][id] = new Subject<IssueData>();
+    }
+    return from(this.ISSUE_SERVICE_MAP[issueType].getById(id, issueProviderId)).pipe(
+      switchMap((issue) =>
+        merge<IssueData | null>(of(issue), this.ISSUE_REFRESH_MAP[issueProviderId][id]),
+      ),
+    );
   }
 
-  searchIssues$(
+  searchIssues(
     searchTerm: string,
     issueProviderId: string,
     issueProviderKey: IssueProviderKey,
     isEmptySearch = false,
-  ): Observable<SearchResultItem[]> {
+  ): Promise<SearchResultItem[]> {
     // check if text is more than just special chars
-    if (searchTerm.replace(/[\W_]+/g, '').trim().length === 0 && !isEmptySearch) {
-      return of([]);
+    if (searchTerm.replace(/[^\p{L}\p{N}]+/gu, '').length === 0 && !isEmptySearch) {
+      return Promise.resolve([]);
     }
-    return this.ISSUE_SERVICE_MAP[issueProviderKey].searchIssues$(
+    return this.ISSUE_SERVICE_MAP[issueProviderKey].searchIssues(
       searchTerm,
       issueProviderId,
     );
@@ -138,7 +142,9 @@ export class IssueService {
     return this._store.select(selectEnabledIssueProviders).pipe(
       switchMap((enabledProviders) => {
         const searchObservables = enabledProviders.map((provider) =>
-          this.searchIssues$(searchTerm, provider.id, provider.issueProviderKey).pipe(
+          from(
+            this.searchIssues(searchTerm, provider.id, provider.issueProviderKey),
+          ).pipe(
             map((results) =>
               results.map((result) => ({
                 ...result,
@@ -164,16 +170,16 @@ export class IssueService {
     );
   }
 
-  issueLink$(
+  issueLink(
     issueType: IssueProviderKey,
     issueId: string | number,
     issueProviderId: string,
-  ): Observable<string> {
-    return this.ISSUE_SERVICE_MAP[issueType].issueLink$(issueId, issueProviderId);
+  ): Promise<string> {
+    return this.ISSUE_SERVICE_MAP[issueType].issueLink(issueId, issueProviderId);
   }
 
-  getPollTimer$(providerKey: IssueProviderKey): Observable<number> {
-    return this.ISSUE_SERVICE_MAP[providerKey].pollTimer$;
+  getPollInterval(providerKey: IssueProviderKey): number {
+    return this.ISSUE_SERVICE_MAP[providerKey].pollInterval;
   }
 
   getMappedAttachments(
@@ -226,9 +232,7 @@ export class IssueService {
     });
 
     if (issuesToAdd.length === 1) {
-      const issueTitle = this.ISSUE_SERVICE_MAP[providerKey].getAddTaskData(
-        issuesToAdd[0],
-      ).title;
+      const issueTitle = this._getAddTaskData(providerKey, issuesToAdd[0]).title;
       this._snackService.open({
         svgIco: ISSUE_PROVIDER_ICON_MAP[providerKey],
         // ico: 'cloud_download',
@@ -274,8 +278,8 @@ export class IssueService {
     )(task, isNotifySuccess, isNotifyNoUpdateRequired);
 
     if (update) {
-      if (this.ISSUE_REFRESH_MAP[issueType][issueId]) {
-        this.ISSUE_REFRESH_MAP[issueType][issueId].next(update.issue);
+      if (this.ISSUE_REFRESH_MAP[issueProviderId]?.[issueId]) {
+        this.ISSUE_REFRESH_MAP[issueProviderId][issueId].next(update.issue);
       }
       this._taskService.update(task.id, update.taskChanges);
 
@@ -320,7 +324,7 @@ export class IssueService {
 
     for (const pKey of Object.keys(tasksIssueIdsByIssueProviderKey)) {
       const providerKey = pKey as IssueProviderKey;
-      console.log(
+      IssueLog.log(
         'POLLING CHANGES FOR ' + providerKey,
         tasksIssueIdsByIssueProviderKey[providerKey],
       );
@@ -346,8 +350,8 @@ export class IssueService {
 
       if (updates.length > 0) {
         for (const update of updates) {
-          if (this.ISSUE_REFRESH_MAP[providerKey][update.task.issueId as string]) {
-            this.ISSUE_REFRESH_MAP[providerKey][update.task.issueId as string].next(
+          if (this.ISSUE_REFRESH_MAP[issueProvider.id]?.[update.task.issueId as string]) {
+            this.ISSUE_REFRESH_MAP[issueProvider.id][update.task.issueId as string].next(
               update.issue,
             );
           }
@@ -406,10 +410,6 @@ export class IssueService {
       throw new Error('No issueData');
     }
 
-    if (!this.ISSUE_SERVICE_MAP[issueProviderKey].getAddTaskData) {
-      throw new Error('Issue method not available');
-    }
-
     if (
       await this._checkAndHandleIssueAlreadyAdded(
         issueProviderKey,
@@ -420,9 +420,12 @@ export class IssueService {
       return undefined;
     }
 
-    const { title = null, ...additionalFromProviderIssueService } =
-      this.ISSUE_SERVICE_MAP[issueProviderKey].getAddTaskData(issueDataReduced);
-    console.log({ title, additionalFromProviderIssueService });
+    const {
+      title = null,
+      related_to,
+      ...additionalFromProviderIssueService
+    } = this._getAddTaskData(issueProviderKey, issueDataReduced);
+    IssueLog.log({ title, related_to, additionalFromProviderIssueService });
 
     const getProjectOrTagId = async (): Promise<Partial<TaskCopy>> => {
       const defaultProjectId = (
@@ -441,12 +444,12 @@ export class IssueService {
       ) {
         return {
           projectId: defaultProjectId || this._workContextService.activeWorkContextId,
-          tagIds: [TODAY_TAG.id],
         };
       } else {
         return {
           tagIds:
-            this._workContextService.activeWorkContextType === WorkContextType.TAG
+            this._workContextService.activeWorkContextType === WorkContextType.TAG &&
+            this._workContextService.activeWorkContextId !== TODAY_TAG.id
               ? [this._workContextService.activeWorkContextId]
               : [],
           projectId: defaultProjectId || undefined,
@@ -460,22 +463,77 @@ export class IssueService {
       issueId: issueDataReduced.id.toString(),
       issueWasUpdated: false,
       issueLastUpdated: Date.now(),
+      // Default plan for today unless a precise time is provided by provider
+      dueDay: getDbDateStr(),
       ...additionalFromProviderIssueService,
       // NOTE: if we were to add tags, this could be overwritten here
       ...(await getProjectOrTagId()),
       ...additional,
     };
 
-    const taskId = taskData.plannedAt
-      ? await this._taskService.addAndSchedule(title, taskData, taskData.plannedAt)
-      : this._taskService.add(title, isAddToBacklog, taskData);
+    // If a precise start time is provided by the provider, avoid setting dueDay as well
+    if ((taskData as Partial<TaskCopy>).dueWithTime) {
+      (taskData as Partial<TaskCopy>).dueDay = undefined;
+    }
 
-    // TODO more elegant solution for skipped calendar events
-    if (issueProviderKey === ICAL_TYPE) {
-      this._calendarIntegrationService.skipCalendarEvent(issueDataReduced.id.toString());
+    let taskId: string | undefined;
+
+    if (related_to) {
+      taskId = await this._tryAddSubTask({
+        title: title as string,
+        taskData,
+        issueParentId: related_to,
+        issueProviderId,
+        issueProviderKey,
+      });
+    }
+
+    // add new task (also fallback when parent id of subtask is not found)
+    if (!taskId) {
+      taskId = taskData.dueWithTime
+        ? await this._taskService.addAndSchedule(title, taskData, taskData.dueWithTime)
+        : this._taskService.add(title, isAddToBacklog, taskData);
+
+      // TODO more elegant solution for skipped calendar events
+      if (issueProviderKey === ICAL_TYPE) {
+        this._calendarIntegrationService.skipCalendarEvent(
+          issueDataReduced.id.toString(),
+        );
+      }
     }
 
     return taskId;
+  }
+
+  private async _tryAddSubTask({
+    title,
+    taskData,
+    issueParentId,
+    issueProviderId,
+    issueProviderKey,
+  }: {
+    title: string;
+    taskData: Partial<Task>;
+    issueParentId: string;
+    issueProviderId: string;
+    issueProviderKey: IssueProviderKey;
+  }): Promise<string | undefined> {
+    const parentTask = await this._taskService.checkForTaskWithIssueEverywhere(
+      issueParentId,
+      issueProviderKey,
+      issueProviderId,
+    );
+
+    if (parentTask) {
+      const subTaskData = { title, ...taskData } as Partial<TaskCopy>;
+      // Ensure invariants for sub-tasks as well
+      if (subTaskData.dueWithTime) {
+        subTaskData.dueDay = undefined;
+      }
+      return this._taskService.addSubTaskTo(parentTask.task.id, subTaskData);
+    }
+
+    return undefined;
   }
 
   private async _checkAndHandleIssueAlreadyAdded(
@@ -531,6 +589,18 @@ export class IssueService {
     return false;
   }
 
+  private _getAddTaskData(
+    issueProviderKey: IssueProviderKey,
+    issueReduced: IssueDataReduced,
+  ): IssueTask {
+    if (!this.ISSUE_SERVICE_MAP[issueProviderKey].getAddTaskData) {
+      throw new Error('Issue method not available');
+    }
+    const r = this.ISSUE_SERVICE_MAP[issueProviderKey].getAddTaskData(issueReduced);
+    typia.assert<IssueTask>(r);
+    return r;
+  }
+
   // TODO if we need to refresh data on after add, this is how we would do it
   // try {
   //   const freshIssueData = await this.ISSUE_SERVICE_MAP[issueProviderKey]
@@ -541,7 +611,7 @@ export class IssueService {
   //     this.ISSUE_SERVICE_MAP[issueProviderKey].getAddTaskData(freshIssueData);
   //   this._taskService.update(taskId, {});
   // } catch (e) {
-  //   console.error(e);
+  //   IssueLog.err(e);
   //   this._taskService.remove(taskId);
   //   // TODO show error msg
   // }

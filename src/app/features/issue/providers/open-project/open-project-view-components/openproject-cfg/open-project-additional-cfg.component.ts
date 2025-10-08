@@ -29,7 +29,7 @@ import { OpenProjectApiService } from '../../open-project-api.service';
 import {
   OpenProjectWorkPackage,
   OpenProjectWorkPackageReduced,
-} from '../../open-project-issue/open-project-issue.model';
+} from '../../open-project-issue.model';
 import { DEFAULT_OPEN_PROJECT_CFG } from '../../open-project.const';
 import {
   OpenProjectTransitionConfig,
@@ -105,7 +105,7 @@ export class OpenProjectAdditionalCfgComponent implements OnInit, OnDestroy {
     );
   transitionConfigOpts: {
     key: keyof OpenProjectTransitionConfig;
-    val: OpenProjectTransitionOption;
+    val: OpenProjectTransitionOption | undefined;
   }[] = [];
 
   private _subs: Subscription = new Subscription();
@@ -163,7 +163,9 @@ export class OpenProjectAdditionalCfgComponent implements OnInit, OnDestroy {
     this._subs.unsubscribe();
   }
 
-  getTransition(key: keyof OpenProjectTransitionConfig): OpenProjectTransitionOption {
+  getTransition(
+    key: keyof OpenProjectTransitionConfig,
+  ): OpenProjectTransitionOption | undefined {
     return this.cfg.transitionConfig[key];
   }
 
@@ -226,7 +228,7 @@ export class OpenProjectAdditionalCfgComponent implements OnInit, OnDestroy {
   }
 
   showSetProgressOption(key: any): boolean {
-    const transitionOption = this.getTransition(key).valueOf();
+    const transitionOption = this.getTransition(key)?.valueOf();
     let shouldShow: boolean = false;
     if (key === 'DONE') {
       shouldShow = transitionOption !== 'DO_NOT' && transitionOption !== 'ALWAYS_ASK';

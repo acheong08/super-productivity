@@ -11,12 +11,11 @@ import { initialObstructionState } from '../../features/metric/obstruction/store
 import { AppBaseData } from './sync.model';
 import { initialNoteState } from '../../features/note/store/note.reducer';
 import { initialGlobalConfigState } from '../../features/config/store/global-config.reducer';
-import { MODEL_VERSION } from '../../core/model-version';
-import { MODEL_VERSION_KEY } from '../../app.constants';
 import { plannerInitialState } from '../../features/planner/store/planner.reducer';
 import { GlobalConfigState } from '../../features/config/global-config.model';
 import { issueProviderInitialState } from '../../features/issue/store/issue-provider.reducer';
 import { initialBoardsState } from '../../features/boards/store/boards.reducer';
+import { menuTreeInitialState } from '../../features/menu-tree/store/menu-tree.reducer';
 
 export const SYNC_INITIAL_SYNC_TRIGGER = 'INITIAL_SYNC_TRIGGER';
 export const SYNC_DEFAULT_AUDIT_TIME = 10000;
@@ -28,6 +27,7 @@ export const SYNC_MIN_INTERVAL = 5000;
 
 export const DEFAULT_APP_BASE_DATA: AppBaseData = {
   project: initialProjectState,
+  menuTree: menuTreeInitialState,
   archivedProjects: {},
   globalConfig: initialGlobalConfigState,
   reminders: [],
@@ -40,7 +40,6 @@ export const DEFAULT_APP_BASE_DATA: AppBaseData = {
   simpleCounter: initialSimpleCounterState,
   taskArchive: {
     ...(createEmptyEntity() as TaskArchive),
-    [MODEL_VERSION_KEY]: MODEL_VERSION.TASK_ARCHIVE,
   },
   taskRepeatCfg: initialTaskRepeatCfgState,
   note: initialNoteState,

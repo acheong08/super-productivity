@@ -2,7 +2,7 @@ import { FormlyFieldConfig } from '@ngx-formly/core';
 import { T } from '../../../t.const';
 import { isValidSplitTime } from '../../../util/is-valid-split-time';
 import { TASK_REMINDER_OPTIONS } from '../../planner/dialog-schedule-task/task-reminder-options.const';
-import { getWorklogStr } from '../../../util/get-work-log-str';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 import { RepeatQuickSetting, TaskRepeatCfg } from '../task-repeat-cfg.model';
 import { getQuickSettingUpdates } from './get-quick-setting-updates';
 
@@ -91,7 +91,7 @@ export const TASK_REPEAT_CFG_FORM_CFG_BEFORE_TAGS: FormlyFieldConfig[] = [
     key: 'startDate',
     type: 'input',
     hideExpression: (model: any) => model.quickSetting !== 'CUSTOM',
-    defaultValue: getWorklogStr(),
+    defaultValue: getDbDateStr(),
     templateOptions: {
       label: T.F.TASK_REPEAT.F.START_DATE,
       required: true,
@@ -219,5 +219,26 @@ export const TASK_REPEAT_CFG_ADVANCED_FORM_CFG: FormlyFieldConfig[] = [
       label: T.F.TASK_REPEAT.F.NOTES,
       rows: 4,
     },
+  },
+  {
+    key: 'shouldInheritSubtasks',
+    type: 'checkbox',
+    defaultValue: false,
+    templateOptions: {
+      label: T.F.TASK_REPEAT.F.INHERIT_SUBTASKS,
+      description: T.F.TASK_REPEAT.F.INHERIT_SUBTASKS_DESCRIPTION,
+    },
+  },
+  // child option depending on inherit
+  {
+    key: 'disableAutoUpdateSubtasks',
+    type: 'checkbox',
+    defaultValue: false,
+    hideExpression: (model: any) => !model.shouldInheritSubtasks,
+    templateOptions: {
+      label: T.F.TASK_REPEAT.F.DISABLE_AUTO_UPDATE_SUBTASKS,
+      description: T.F.TASK_REPEAT.F.DISABLE_AUTO_UPDATE_SUBTASKS_DESCRIPTION,
+    },
+    className: 'sp-formly-child-option',
   },
 ];

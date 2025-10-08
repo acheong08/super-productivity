@@ -25,6 +25,7 @@ import {
   moveProjectTaskToRegularList,
 } from '../../project/store/project.actions';
 import { moveSubTask } from '../store/task.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { WorkContextService } from '../../work-context/work-context.service';
 import { Store } from '@ngrx/store';
 import { moveItemBeforeItem } from '../../../util/move-item-before-item';
@@ -35,10 +36,12 @@ import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { TaskComponent } from '../task/task.component';
 import { AsyncPipe } from '@angular/common';
+import { TaskViewCustomizerService } from '../../task-view-customizer/task-view-customizer.service';
+import { TaskLog } from '../../../core/log';
 
 export type TaskListId = 'PARENT' | 'SUB';
 export type ListModelId = DropListModelSource | string;
-const PARENT_ALLOWED_LISTS = ['DONE', 'UNDONE', 'BACKLOG', 'ADD_TASK_PANEL'];
+const PARENT_ALLOWED_LISTS = ['DONE', 'UNDONE', 'OVERDUE', 'BACKLOG', 'ADD_TASK_PANEL'];
 
 export interface DropModelDataForList {
   listModelId: ListModelId;
@@ -66,11 +69,13 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
   private _workContextService = inject(WorkContextService);
   private _store = inject(Store);
   private _issueService = inject(IssueService);
+  private _taskViewCustomizerService = inject(TaskViewCustomizerService);
   dropListService = inject(DropListService);
 
   tasks = input<TaskWithSubTasks[]>([]);
   isHideDone = input(false);
   isHideAll = input(false);
+  isSortingDisabled = input(false);
 
   listId = input.required<TaskListId>();
   listModelId = input.required<ListModelId>();
@@ -127,9 +132,11 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
     // const targetModelId = drag.dropContainer.data.listModelId;
     const targetModelId = drop.data.listModelId;
     const isSubtask = !!task.parentId;
-    // console.log(drag.data.id, { isSubtask, targetModelId, drag, drop });
+    // TaskLog.log(drag.data.id, { isSubtask, targetModelId, drag, drop });
     // return true;
-    if (isSubtask) {
+    if (targetModelId === 'OVERDUE' || targetModelId === 'LATER_TODAY') {
+      return false;
+    } else if (isSubtask) {
       if (!PARENT_ALLOWED_LISTS.includes(targetModelId)) {
         return true;
       }
@@ -152,7 +159,7 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
     const srcListData = ev.previousContainer.data;
     const targetListData = ev.container.data;
     const draggedTask = ev.item.data;
-    console.log({
+    TaskLog.log({
       ev,
       srcListData,
       targetListData,
@@ -176,18 +183,45 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
 
     const newIds =
       targetTask && targetTask.id !== draggedTask.id
-        ? [
-            ...moveItemBeforeItem(
-              targetListData.filteredTasks,
-              draggedTask,
-              targetTask as TaskWithSubTasks,
-            ),
-          ]
+        ? (() => {
+            const currentDraggedIndex = targetListData.filteredTasks.findIndex(
+              (t) => t.id === draggedTask.id,
+            );
+            const currentTargetIndex = targetListData.filteredTasks.findIndex(
+              (t) => t.id === targetTask.id,
+            );
+
+            // If dragging from a different list or new item, use target index
+            const isDraggingDown =
+              currentDraggedIndex !== -1 && currentDraggedIndex < currentTargetIndex;
+
+            if (isDraggingDown) {
+              // When dragging down, place AFTER the target item
+              const filtered = targetListData.filteredTasks.filter(
+                (t) => t.id !== draggedTask.id,
+              );
+              const targetIndexInFiltered = filtered.findIndex(
+                (t) => t.id === targetTask.id,
+              );
+              const result = [...filtered];
+              result.splice(targetIndexInFiltered + 1, 0, draggedTask);
+              return result;
+            } else {
+              // When dragging up or from another list, place BEFORE the target item
+              return [
+                ...moveItemBeforeItem(
+                  targetListData.filteredTasks,
+                  draggedTask,
+                  targetTask as TaskWithSubTasks,
+                ),
+              ];
+            }
+          })()
         : [
             ...targetListData.filteredTasks.filter((t) => t.id !== draggedTask.id),
             draggedTask,
           ];
-    console.log(srcListData.listModelId, '=>', targetListData.listModelId, {
+    TaskLog.log(srcListData.listModelId, '=>', targetListData.listModelId, {
       targetTask,
       draggedTask,
       newIds,
@@ -200,6 +234,8 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
       targetListData.listModelId,
       newIds.map((p) => p.id),
     );
+
+    this._taskViewCustomizerService.setSort('default');
   }
 
   async _addFromIssuePanel(
@@ -227,6 +263,11 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
     const isTargetRegularList = target === 'DONE' || target === 'UNDONE';
     const workContextId = this._workContextService.activeWorkContextId as string;
 
+    // Handle LATER_TODAY - prevent any moves to or from this list
+    if (src === 'LATER_TODAY' || target === 'LATER_TODAY') {
+      return;
+    }
+
     if (isSrcRegularList && isTargetRegularList) {
       // move inside today
       const workContextType = this._workContextService
@@ -241,6 +282,29 @@ export class TaskListComponent implements OnDestroy, AfterViewInit {
           workContextType,
         }),
       );
+    } else if (target === 'OVERDUE') {
+      return;
+    } else if (src === 'OVERDUE' && (target === 'UNDONE' || target === 'DONE')) {
+      const workContextType = this._workContextService
+        .activeWorkContextType as WorkContextType;
+      this._store.dispatch(TaskSharedActions.planTasksForToday({ taskIds: [taskId] }));
+      this._store.dispatch(
+        moveTaskInTodayList({
+          taskId,
+          newOrderedIds,
+          src,
+          target,
+          workContextId,
+          workContextType,
+        }),
+      );
+      if (target === 'DONE') {
+        this._store.dispatch(
+          TaskSharedActions.updateTask({
+            task: { id: taskId, changes: { isDone: true } },
+          }),
+        );
+      }
     } else if (src === 'BACKLOG' && target === 'BACKLOG') {
       // move inside backlog
       this._store.dispatch(

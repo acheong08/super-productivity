@@ -1,3 +1,5 @@
+@use '../mixins/_theming';
+
 //@import "shepherd.js/dist/css/shepherd.css";
 
 .shepherd-modal-overlay-container {
@@ -5,21 +7,21 @@
 }
 
 .shepherd-highlight {
-  outline: 3px dotted $c-accent !important;
+  outline: 3px dotted var(--c-accent) !important;
 }
 
 .shepherd-highlight-inner {
-  border: 3px dotted $c-accent !important;
+  border: 3px dotted var(--c-accent) !important;
 }
 
 .shepherd-text kbd {
-  background-color: #eee;
+  background-color: var(--bg-lightest);
   border-radius: 3px;
-  border: 1px solid #b4b4b4;
+  border: 1px solid var(--extra-border-color);
   box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.2),
-    0 2px 0 0 rgba(255, 255, 255, 0.7) inset;
-  color: #333;
+    0 1px 1px var(--c-dark-20),
+    0 2px 0 0 var(--c-light-70) inset;
+  color: var(--text-color);
   display: inline-block;
   font-size: 0.85em;
   font-weight: 700;
@@ -30,7 +32,7 @@
 
 .shepherd-nav-list {
   li {
-    margin-bottom: $s;
+    margin-bottom: var(--s);
   }
 
   a {
@@ -39,18 +41,40 @@
 }
 
 .shepherd-header {
-  padding: $s 1rem !important;
+  padding: var(--s) 1rem !important;
   border-top-left-radius: 5px;
   border-top-right-radius: 5px;
   line-height: 2em;
+  position: relative;
 
-  @include darkTheme(true) {
-    background: $dark8 !important;
+  @include theming.darkTheme(true) {
+    background: var(--dark8) !important;
   }
 
   h3 {
     margin: 0;
     font-weight: bold;
+  }
+}
+
+.shepherd-cancel-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: normal;
+  height: auto;
+  padding: 0;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: auto;
+  opacity: 0.75;
+  transition: opacity 0.25s;
+
+  &:hover {
+    opacity: 1;
   }
 }
 
@@ -61,9 +85,9 @@
 }
 
 .shepherd-colored-border {
-  border: 1px solid $c-primary;
+  border: 1px solid var(--c-primary);
   padding: 0 4px;
-  color: $c-primary;
+  color: var(--c-primary);
   font-weight: bold;
   border-radius: 4px;
 }
@@ -73,16 +97,13 @@
   font-size: 16px;
   line-height: 1.5;
 
-  @include darkTheme(true) {
-    color: $dark-theme-text-color;
-  }
+  color: var(--text-color);
 }
 
 .shepherd-element {
   border-radius: 8px;
-  box-shadow: $whiteframe-shadow-24dp;
-  z-index: $z-tour;
-  background: #fff;
+  box-shadow: var(--whiteframe-shadow-24dp);
+  z-index: var(--z-tour);
   max-width: 400px;
   opacity: 0;
   outline: none;
@@ -92,9 +113,7 @@
   visibility: hidden;
   width: 100%;
 
-  @include darkTheme(true) {
-    background: $dark24 !important;
-  }
+  background: var(--bg-lightest) !important;
 
   .material-icons {
     vertical-align: middle;
@@ -102,13 +121,10 @@
 }
 
 .shepherd-arrow:before {
-  background: #fff;
   content: '';
   transform: rotate(45deg);
 
-  @include darkTheme(true) {
-    background: $dark24 !important;
-  }
+  background: var(--bg-lightest) !important;
 }
 
 .shepherd-footer button + button {
@@ -136,7 +152,7 @@
 }
 
 .shepherd-has-title .shepherd-content .shepherd-header {
-  background: #e6e6e6;
+  background: var(--bg-lighter);
   padding: 1em;
 }
 
@@ -194,7 +210,7 @@
 
 .shepherd-element.shepherd-has-title[data-popper-placement^='bottom']
   > .shepherd-arrow:before {
-  background-color: #e6e6e6;
+  background-color: var(--bg-lighter);
 }
 
 .shepherd-target-click-disabled.shepherd-enabled.shepherd-target,

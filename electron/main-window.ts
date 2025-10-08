@@ -1,4 +1,4 @@
-import * as windowStateKeeper from 'electron-window-state';
+import windowStateKeeper from 'electron-window-state';
 import {
   App,
   BrowserWindow,
@@ -18,6 +18,11 @@ import { readFileSync, stat } from 'fs';
 import { error, log } from 'electron-log/main';
 import { GlobalConfigState } from '../src/app/features/config/global-config.model';
 import { IS_MAC } from './common.const';
+import {
+  destroyOverlayWindow,
+  hideOverlayWindow,
+  showOverlayWindow,
+} from './overlay-indicator/overlay-indicator';
 
 let mainWin: BrowserWindow;
 
@@ -86,8 +91,13 @@ export const createWindow = ({
       nodeIntegration: false,
       // make remote module work with those two settings
       contextIsolation: true,
+      // Additional settings for better Linux/Wayland compatibility
+      enableBlinkFeatures: 'OverlayScrollbar',
     },
     icon: ICONS_FOLDER + '/icon_256x256.png',
+    // Wayland compatibility: disable transparent/frameless features that can cause issues
+    // transparent: false,
+    // frame: true,
   });
 
   // see: https://pratikpc.medium.com/bypassing-cors-with-electron-ab7eaf331605
@@ -108,7 +118,10 @@ export const createWindow = ({
     removeKeyInAnyCase(requestHeaders, 'accept');
 
     // NOTE this is needed for GitHub api requests to work :(
-    if (!details.url.includes('github.com')) {
+    // office365 needs a User-Agent as well (#4677)
+    if (
+      new URL(details.url).hostname in ['github.com', 'office365.com', 'outlook.live.com']
+    ) {
       removeKeyInAnyCase(requestHeaders, 'User-Agent');
     }
     callback({ requestHeaders });
@@ -132,7 +145,7 @@ export const createWindow = ({
     : IS_DEV
       ? 'http://localhost:4200'
       : format({
-          pathname: normalize(join(__dirname, '../dist/browser/index.html')),
+          pathname: normalize(join(__dirname, '../.tmp/angular-dist/browser/index.html')),
           protocol: 'file:',
           slashes: true,
         });
@@ -146,7 +159,12 @@ export const createWindow = ({
       } else {
         log('Loading custom styles from ' + CSS_FILE_PATH);
         const styles = readFileSync(CSS_FILE_PATH, { encoding: 'utf8' });
-        mainWin.webContents.insertCSS(styles).then(log).catch(error);
+        try {
+          mainWin.webContents.insertCSS(styles);
+          log('Custom styles loaded successfully');
+        } catch (cssError) {
+          error('Failed to load custom styles:', cssError);
+        }
       }
     });
   });
@@ -177,7 +195,7 @@ export const createWindow = ({
 };
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
-function initWinEventListeners(app: any): void {
+function initWinEventListeners(app: Electron.App): void {
   const openUrlInBrowser = (url: string): void => {
     // needed for mac; especially for jira urls we might have a host like this www.host.de//
     const urlObj = new URL(url);
@@ -204,6 +222,24 @@ function initWinEventListeners(app: any): void {
   // TODO refactor quitting mess
   appCloseHandler(app);
   appMinimizeHandler(app);
+
+  // Handle restore and show events to hide overlay
+  mainWin.on('restore', () => {
+    hideOverlayWindow();
+  });
+
+  mainWin.on('show', () => {
+    hideOverlayWindow();
+  });
+
+  mainWin.on('focus', () => {
+    hideOverlayWindow();
+  });
+
+  // Handle hide event to show overlay
+  mainWin.on('hide', () => {
+    showOverlayWindow();
+  });
 }
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
@@ -253,6 +289,8 @@ const appCloseHandler = (app: App): void => {
 
   const _quitApp = (): void => {
     (app as any).isQuiting = true;
+    // Destroy overlay window before closing main window to ensure window-all-closed fires
+    destroyOverlayWindow();
     mainWin.close();
   };
 
@@ -266,6 +304,8 @@ const appCloseHandler = (app: App): void => {
     ids = ids.filter((idIn) => idIn !== id);
     log(IPC.BEFORE_CLOSE_DONE, id, ids);
     if (ids.length === 0) {
+      // Destroy overlay window before closing main window
+      destroyOverlayWindow();
       mainWin.close();
     }
   });
@@ -278,6 +318,7 @@ const appCloseHandler = (app: App): void => {
       getSettings(mainWin, (appCfg: GlobalConfigState) => {
         if (appCfg && appCfg.misc.isMinimizeToTray && !(app as any).isQuiting) {
           mainWin.hide();
+          showOverlayWindow();
           return;
         }
 
@@ -289,6 +330,12 @@ const appCloseHandler = (app: App): void => {
         }
       });
     }
+  });
+
+  mainWin.on('closed', () => {
+    // Dereference the window object
+    mainWin = null;
+    mainWinModule.win = null;
   });
 
   mainWin.webContents.on('render-process-gone', (event, detailed) => {
@@ -311,34 +358,50 @@ const appMinimizeHandler = (app: App): void => {
         if (appCfg.misc.isMinimizeToTray) {
           event.preventDefault();
           mainWin.hide();
-        } else if (IS_MAC) {
-          app.dock.show();
+          showOverlayWindow();
+        } else {
+          // For regular minimize (not to tray), also show overlay
+          showOverlayWindow();
+          if (IS_MAC) {
+            app.dock?.show();
+          }
         }
       });
     });
   }
 };
 
-const upsertKeyValue = <T>(obj: T, keyToChange: string, value: string[]): T => {
+const upsertKeyValue = <T extends Record<string, any> | undefined>(
+  obj: T,
+  keyToChange: string,
+  value: string[],
+): T => {
+  if (!obj) return obj;
   const keyToChangeLower = keyToChange.toLowerCase();
   for (const key of Object.keys(obj)) {
     if (key.toLowerCase() === keyToChangeLower) {
       // Reassign old key
-      obj[key] = value;
+      (obj as any)[key] = value;
       // Done
-      return;
+      return obj;
     }
   }
   // Insert at end instead
-  obj[keyToChange] = value;
+  (obj as any)[keyToChange] = value;
+  return obj;
 };
 
-const removeKeyInAnyCase = <T>(obj: T, keyToRemove: string): T => {
+const removeKeyInAnyCase = <T extends Record<string, any> | undefined>(
+  obj: T,
+  keyToRemove: string,
+): T => {
+  if (!obj) return obj;
   const keyToRemoveLower = keyToRemove.toLowerCase();
   for (const key of Object.keys(obj)) {
     if (key.toLowerCase() === keyToRemoveLower) {
-      delete obj[key];
-      return;
+      delete (obj as any)[key];
+      return obj;
     }
   }
+  return obj;
 };

@@ -1,4 +1,4 @@
-@import '../../../../variables.scss';
+@use '../../../../styles/_globals.scss' as *;
 
 :host {
   display: block;
@@ -41,9 +41,7 @@ h4 {
   margin-top: 1px;
   font-size: 12px;
 
-  @include darkTheme() {
-    color: #ffffff;
-  }
+  color: var(--text-color-most-intense);
 }
 
 .provider-items {

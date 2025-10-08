@@ -6,7 +6,7 @@ import {
   selectTaskEntities,
   selectTaskFeatureState,
 } from '../../tasks/store/task.selectors';
-import { Task, TaskPlanned, TaskWithSubTasks } from '../../tasks/task.model';
+import { Task, TaskWithDueTime, TaskWithSubTasks } from '../../tasks/task.model';
 import { devError } from '../../../util/dev-error';
 import {
   selectProjectById,
@@ -24,10 +24,7 @@ export const selectActiveContextId = createSelector(
   selectContextFeatureState,
   (state) => state.activeId,
 );
-export const selectActiveContextType = createSelector(
-  selectContextFeatureState,
-  (state) => state.activeType,
-);
+
 export const selectActiveContextTypeAndId = createSelector(
   selectContextFeatureState,
   (
@@ -180,6 +177,16 @@ export const selectTodayTaskIds = createSelector(
   },
 );
 
+export const selectUndoneTodayTaskIds = createSelector(
+  selectTagFeatureState,
+  selectTaskFeatureState,
+  (tagState, taskState): string[] => {
+    return (tagState.entities[TODAY_TAG.id]?.taskIds || []).filter(
+      (taskId) => taskState.entities[taskId]?.isDone === false,
+    );
+  },
+);
+
 export const selectTimelineTasks = createSelector(
   selectTodayTaskIds,
   selectTaskFeatureState,
@@ -187,28 +194,16 @@ export const selectTimelineTasks = createSelector(
     todayIds,
     s,
   ): {
-    planned: TaskPlanned[];
+    planned: TaskWithDueTime[];
     unPlanned: TaskWithSubTasks[];
   } => {
-    const allPlannedTasks: TaskPlanned[] = [];
+    const allPlannedTasks: TaskWithDueTime[] = [];
     s.ids
       .map((id) => s.entities[id] as Task)
       .forEach((t) => {
         if (!t.isDone) {
-          // if (
-          //   !!t.parentId &&
-          //   (s.entities[t.parentId] as Task).plannedAt &&
-          //   (s.entities[t.parentId] as Task).reminderId
-          // ) {
-          //   allPlannedTasks.push({
-          //     ...t,
-          //     plannedAt:
-          //       t.plannedAt ||
-          //       ((s.entities[t.parentId as string] as Task).plannedAt as number),
-          //   });
-          // } else
-          if (t.plannedAt && t.reminderId) {
-            allPlannedTasks.push(t as TaskPlanned);
+          if (t.dueWithTime) {
+            allPlannedTasks.push(t as TaskWithDueTime);
           }
         }
       });
@@ -221,41 +216,6 @@ export const selectTimelineTasks = createSelector(
           return mapSubTasksToTask(s.entities[id] as Task, s) as TaskWithSubTasks;
         })
         .filter((t) => !t.isDone && !allPlannedIds.includes(t.id)),
-    };
-  },
-);
-
-export const selectTodayTasksWithPlannedAndDoneSeperated = createSelector(
-  selectTagFeatureState,
-  selectTaskFeatureState,
-  (
-    tagState,
-    taskState,
-  ): {
-    planned: TaskPlanned[];
-    normal: Task[];
-    done: Task[];
-  } => {
-    const taskIds = tagState.entities[TODAY_TAG.id]?.taskIds || [];
-    const normalTasks: Task[] = [];
-    const allPlannedTasks: TaskPlanned[] = [];
-    const doneTasks: Task[] = [];
-    taskIds
-      .map((id) => taskState.entities[id] as Task)
-      .forEach((t) => {
-        if (t.plannedAt && t.reminderId) {
-          allPlannedTasks.push(t as TaskPlanned);
-        } else if (t.isDone) {
-          doneTasks.push(t);
-        } else {
-          normalTasks.push(t);
-        }
-      });
-
-    return {
-      planned: allPlannedTasks,
-      normal: normalTasks,
-      done: doneTasks,
     };
   },
 );

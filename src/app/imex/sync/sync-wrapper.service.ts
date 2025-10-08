@@ -1,18 +1,22 @@
 import { inject, Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { GlobalConfigService } from '../../features/config/global-config.service';
-import { filter, map, switchMap, take } from 'rxjs/operators';
+import { catchError, filter, first, map, switchMap, take, timeout } from 'rxjs/operators';
 import { SyncConfig } from '../../features/config/global-config.model';
 import { TranslateService } from '@ngx-translate/core';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { SnackService } from '../../core/snack/snack.service';
 import {
   AuthFailSPError,
+  CanNotMigrateMajorDownError,
+  ConflictData,
   DecryptError,
   DecryptNoPasswordError,
   LockPresentError,
   NoRemoteModelFile,
+  PotentialCorsError,
   RevMismatchForModelError,
+  SyncInvalidTimeValuesError,
   SyncProviderId,
   SyncStatus,
 } from '../../pfapi/api';
@@ -27,6 +31,10 @@ import { DataInitService } from '../../core/data-init/data-init.service';
 import { DialogSyncInitialCfgComponent } from './dialog-sync-initial-cfg/dialog-sync-initial-cfg.component';
 import { DialogIncompleteSyncComponent } from './dialog-incomplete-sync/dialog-incomplete-sync.component';
 import { DialogHandleDecryptErrorComponent } from './dialog-handle-decrypt-error/dialog-handle-decrypt-error.component';
+import { DialogIncoherentTimestampsErrorComponent } from './dialog-incoherent-timestamps-error/dialog-incoherent-timestamps-error.component';
+import { SyncLog } from '../../core/log';
+import { promiseTimeout } from '../../util/promise-timeout';
+import { devError } from '../../util/dev-error';
 
 @Injectable({
   providedIn: 'root',
@@ -51,25 +59,38 @@ export class SyncWrapperService {
   );
 
   syncInterval$: Observable<number> = this.syncCfg$.pipe(map((cfg) => cfg.syncInterval));
-  isEnabled$: Observable<boolean> = this.syncCfg$.pipe(map((cfg) => cfg.isEnabled));
 
   isEnabledAndReady$: Observable<boolean> =
     this._pfapiService.isSyncProviderEnabledAndReady$.pipe();
-  isSyncInProgress$: Observable<boolean> = this._pfapiService.isSyncInProgress$.pipe();
 
-  _afterCurrentSyncDoneIfAny$: Observable<unknown> = this.isSyncInProgress$.pipe(
-    filter((isSyncing) => !isSyncing),
-  );
+  // NOTE we don't use this._pfapiService.isSyncInProgress$ since it does not include handling and re-init view model
+  private _isSyncInProgress$ = new BehaviorSubject(false);
+  isSyncInProgress$ = this._isSyncInProgress$.asObservable();
 
-  afterCurrentSyncDoneOrSyncDisabled$: Observable<unknown> = this.isEnabled$.pipe(
+  afterCurrentSyncDoneOrSyncDisabled$: Observable<unknown> = this.isEnabledAndReady$.pipe(
     switchMap((isEnabled) =>
-      isEnabled ? this._afterCurrentSyncDoneIfAny$ : of(undefined),
+      isEnabled
+        ? this._isSyncInProgress$.pipe(
+            filter((isInProgress) => !isInProgress),
+            timeout(40000),
+            catchError((error) => {
+              devError('Sync wait timeout exceeded');
+              return of(undefined);
+            }),
+          )
+        : of(undefined),
     ),
+    first(),
   );
-
-  // TODO move someplace else
 
   async sync(): Promise<SyncStatus | 'HANDLED_ERROR'> {
+    this._isSyncInProgress$.next(true);
+    return this._sync().finally(() => {
+      this._isSyncInProgress$.next(false);
+    });
+  }
+
+  private async _sync(): Promise<SyncStatus | 'HANDLED_ERROR'> {
     const providerId = await this.syncProviderId$.pipe(take(1)).toPromise();
     if (!providerId) {
       throw new Error('No Sync Provider for sync()');
@@ -88,6 +109,11 @@ export class SyncWrapperService {
 
         case SyncStatus.UpdateLocal:
         case SyncStatus.UpdateLocalAll:
+          // Note: We can't create a backup BEFORE the sync because we don't know
+          // what operation will happen until after checking with the remote.
+          // The data has already been downloaded and saved to the database at this point.
+          // Future improvement: modify the pfapi sync service to support pre-download callbacks.
+
           await this._reInitAppAfterDataModelChange();
           this._snackService.open({
             msg: T.F.SYNC.S.SUCCESS_DOWNLOAD,
@@ -103,27 +129,51 @@ export class SyncWrapperService {
           return r.status;
 
         case SyncStatus.Conflict:
-          const res = await this._openConflictDialog$({
-            remote: r.conflictData?.remote.lastUpdate as number,
-            local: r.conflictData?.local.lastUpdate as number,
-            lastSync: r.conflictData?.local.lastSyncedUpdate as number,
-          }).toPromise();
+          SyncLog.log('Sync conflict detected:', {
+            remote: r.conflictData?.remote.lastUpdate,
+            local: r.conflictData?.local.lastUpdate,
+            lastSync: r.conflictData?.local.lastSyncedUpdate,
+            conflictData: r.conflictData,
+          });
+
+          // Enhanced debugging for vector clock issues
+          SyncLog.log('CONFLICT DEBUG - Vector Clock Analysis:', {
+            localVectorClock: r.conflictData?.local.vectorClock,
+            remoteVectorClock: r.conflictData?.remote.vectorClock,
+            localLastSyncedVectorClock: r.conflictData?.local.lastSyncedVectorClock,
+            conflictReason: r.conflictData?.reason,
+            additional: r.conflictData?.additional,
+          });
+          const res = await this._openConflictDialog$(
+            r.conflictData as ConflictData,
+          ).toPromise();
 
           if (res === 'USE_LOCAL') {
-            await this._pfapiService.pf.uploadAll();
+            SyncLog.log('User chose USE_LOCAL, calling uploadAll(true) with force');
+            // Use force upload to skip the meta file check and ensure lastUpdate is updated
+            await this._pfapiService.pf.uploadAll(true);
+            SyncLog.log('uploadAll(true) completed');
             return SyncStatus.UpdateRemoteAll;
           } else if (res === 'USE_REMOTE') {
             await this._pfapiService.pf.downloadAll();
             await this._reInitAppAfterDataModelChange();
           }
-          console.log({ res });
+          SyncLog.log({ res });
 
           return r.status;
       }
-    } catch (error: any) {
-      console.error(error);
+    } catch (error) {
+      SyncLog.err(error);
 
-      if (error instanceof AuthFailSPError) {
+      if (error instanceof PotentialCorsError) {
+        this._snackService.open({
+          msg: T.F.SYNC.S.ERROR_CORS,
+          type: 'ERROR',
+          // a bit longer since it is a long message
+          config: { duration: 12000 },
+        });
+        return 'HANDLED_ERROR';
+      } else if (error instanceof AuthFailSPError) {
         this._snackService.open({
           msg: T.F.SYNC.S.INCOMPLETE_CFG,
           type: 'ERROR',
@@ -131,12 +181,30 @@ export class SyncWrapperService {
           actionStr: T.F.SYNC.S.BTN_CONFIGURE,
         });
         return 'HANDLED_ERROR';
+      } else if (error instanceof SyncInvalidTimeValuesError) {
+        this._matDialog
+          .open(DialogIncoherentTimestampsErrorComponent, {
+            disableClose: true,
+            autoFocus: false,
+          })
+          .afterClosed()
+          .subscribe(async (res) => {
+            if (res === 'FORCE_UPDATE_REMOTE') {
+              await this._forceUpload();
+            } else if (res === 'FORCE_UPDATE_LOCAL') {
+              await this._pfapiService.pf.downloadAll();
+              await this._reInitAppAfterDataModelChange();
+            }
+          });
+        return 'HANDLED_ERROR';
       } else if (
         error instanceof RevMismatchForModelError ||
         error instanceof NoRemoteModelFile
       ) {
-        console.log(error, Object.keys(error));
-        const modelId = error.additionalLog;
+        SyncLog.log(error, Object.keys(error));
+        const modelId =
+          (error.additionalLog && error.additionalLog[0]) || error.additionalLog;
+
         this._matDialog
           .open(DialogIncompleteSyncComponent, {
             data: { modelId },
@@ -164,6 +232,15 @@ export class SyncWrapperService {
         error instanceof DecryptError
       ) {
         this._handleDecryptionError();
+        return 'HANDLED_ERROR';
+      } else if (error instanceof CanNotMigrateMajorDownError) {
+        alert(this._translateService.instant(T.F.SYNC.A.REMOTE_MODEL_VERSION_NEWER));
+        return 'HANDLED_ERROR';
+      } else if (
+        (error as { message?: string })?.message === 'Sync already in progress'
+      ) {
+        // Silently ignore concurrent sync attempts
+        SyncLog.log('Sync already in progress, skipping concurrent sync attempt');
         return 'HANDLED_ERROR';
       } else {
         const errStr = getSyncErrorStr(error);
@@ -212,6 +289,11 @@ export class SyncWrapperService {
       return { wasConfigured: false };
     }
 
+    if (await provider.isReady()) {
+      SyncLog.warn('Provider already configured');
+      return { wasConfigured: false };
+    }
+
     try {
       const { authUrl, codeVerifier, verifyCodeChallenge } =
         await provider.getAuthHelper();
@@ -228,7 +310,12 @@ export class SyncWrapperService {
           .toPromise();
         if (authCode) {
           const r = await verifyCodeChallenge(authCode);
-          await this._pfapiService.pf.setPrivateCfgForSyncProvider(provider.id, r);
+          // Preserve existing config (especially encryptKey) when updating auth
+          const existingConfig = await provider.privateCfg.load();
+          await this._pfapiService.pf.setPrivateCfgForSyncProvider(provider.id, {
+            ...existingConfig,
+            ...r,
+          });
           // NOTE: exec sync afterward; promise not awaited
           setTimeout(() => {
             this.sync();
@@ -239,7 +326,7 @@ export class SyncWrapperService {
         }
       }
     } catch (error) {
-      console.error(error);
+      SyncLog.err(error);
       this._snackService.open({
         // TODO don't limit snack to dropbox
         msg: T.F.DROPBOX.S.UNABLE_TO_GENERATE_PKCE_CHALLENGE,
@@ -268,11 +355,21 @@ export class SyncWrapperService {
   }
 
   private async _reInitAppAfterDataModelChange(): Promise<void> {
-    await Promise.all([
-      // reload view model from ls
-      this._dataInitService.reInit(true),
-      this._reminderService.reloadFromDatabase(),
-    ]);
+    SyncLog.log('Starting data re-initialization after sync...');
+
+    try {
+      await Promise.all([
+        this._dataInitService.reInit(),
+        this._reminderService.reloadFromDatabase(),
+      ]);
+      // wait an extra frame to potentially avoid follow up problems
+      await promiseTimeout(100);
+      SyncLog.log('Data re-initialization complete');
+      // Signal that data reload is complete
+    } catch (error) {
+      SyncLog.err('Error during data re-initialization:', error);
+      throw error;
+    }
   }
 
   private _c(str: string): boolean {
@@ -281,15 +378,9 @@ export class SyncWrapperService {
 
   private lastConflictDialog?: MatDialogRef<any, any>;
 
-  private _openConflictDialog$({
-    remote,
-    local,
-    lastSync,
-  }: {
-    remote: number | null;
-    local: number | null;
-    lastSync: number;
-  }): Observable<DialogConflictResolutionResult> {
+  private _openConflictDialog$(
+    conflictData: ConflictData,
+  ): Observable<DialogConflictResolutionResult> {
     if (this.lastConflictDialog) {
       this.lastConflictDialog.close();
     }
@@ -297,11 +388,7 @@ export class SyncWrapperService {
       restoreFocus: true,
       autoFocus: false,
       disableClose: true,
-      data: {
-        remote,
-        local,
-        lastSync,
-      },
+      data: conflictData,
     });
     return this.lastConflictDialog.afterClosed();
   }

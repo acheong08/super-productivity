@@ -13,6 +13,7 @@ import { ProjectService } from '../../features/project/project.service';
 import { MatMenuItem } from '@angular/material/menu';
 import { TranslatePipe } from '@ngx-translate/core';
 import { MatIcon } from '@angular/material/icon';
+import { INBOX_PROJECT } from '../../features/project/project.const';
 
 @Component({
   selector: 'work-context-menu',
@@ -91,4 +92,6 @@ export class WorkContextMenuComponent {
       this._projectService.remove(project);
     }
   }
+
+  protected readonly INBOX_PROJECT = INBOX_PROJECT;
 }

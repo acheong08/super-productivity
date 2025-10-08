@@ -1,7 +1,8 @@
 import { FormlyFieldConfig } from '@ngx-formly/core';
-import { ProjectCfgFormKey } from '../project/project.model';
-import { LanguageCode, MODEL_VERSION_KEY } from '../../app.constants';
+
+import { LanguageCode } from '../../app.constants';
 import { LegacySyncProvider } from '../../imex/sync/legacy-sync-provider.model';
+import { ProjectCfgFormKey } from '../project/project.model';
 import { KeyboardConfig } from './keyboard-config.model';
 
 export type MiscConfig = Readonly<{
@@ -13,14 +14,17 @@ export type MiscConfig = Readonly<{
   isMinimizeToTray: boolean;
   isTrayShowCurrentTask: boolean;
   // allow also false because of #569
-  defaultProjectId: string | null | false;
+  defaultProjectId?: string | null | false;
   firstDayOfWeek: number;
   startOfNextDay: number;
   taskNotesTpl: string;
-  isUseMinimalNav: boolean;
   isDisableAnimations: boolean;
   // optional because it was added later
-  isShowTipLonger?: boolean;
+  isDisableProductivityTips?: boolean;
+  isTrayShowCurrentCountdown?: boolean;
+  isOverlayIndicatorEnabled?: boolean;
+  customTheme?: string;
+  unsplashApiKey?: string | null;
 }>;
 
 export type ShortSyntaxConfig = Readonly<{
@@ -30,8 +34,8 @@ export type ShortSyntaxConfig = Readonly<{
 }>;
 
 export type TimeTrackingConfig = Readonly<{
-  trackingInterval: number;
-  defaultEstimate: number;
+  trackingInterval?: number | null;
+  defaultEstimate?: number | null;
   defaultEstimateSubTasks?: number | null;
   isAutoStartNextTask: boolean;
   isNotifyWhenTimeEstimateExceeded: boolean;
@@ -66,19 +70,21 @@ export type TakeABreakConfig = Readonly<{
 }>;
 
 export type PomodoroConfig = Readonly<{
-  isEnabled: boolean;
-  isStopTrackingOnBreak: boolean;
-  isStopTrackingOnLongBreak: boolean;
-  isManualContinue: boolean;
-  isManualContinueBreak: boolean;
-  isPlaySound: boolean;
-  isPlaySoundAfterBreak: boolean;
-  // isGoToWorkView: boolean;
-  isPlayTick: boolean;
+  isEnabled?: boolean;
+  isStopTrackingOnBreak?: boolean;
+  isStopTrackingOnLongBreak?: boolean;
+  isDisableAutoStartAfterBreak?: boolean;
+  isManualContinue?: boolean;
+  isManualContinueBreak?: boolean;
+  isPlaySound?: boolean;
+  isPlaySoundAfterBreak?: boolean;
+  // isGoToWorkView?: boolean;
+  isPlayTick?: boolean;
 
-  duration: number;
-  breakDuration: number;
-  longerBreakDuration: number;
+  // due to formly not being reliable here we need to be more lenient
+  duration?: number | null;
+  breakDuration?: number | null;
+  longerBreakDuration?: number | null;
   cyclesBeforeLongerBreak: number;
 }>;
 
@@ -106,6 +112,7 @@ export type LocalBackupConfig = Readonly<{
 
 export type LanguageConfig = Readonly<{
   lng: LanguageCode | null;
+  timeLocale?: string;
 }>;
 
 export type SoundConfig = Readonly<{
@@ -118,8 +125,8 @@ export type SoundConfig = Readonly<{
 
 export type SyncConfig = Readonly<{
   isEnabled: boolean;
-  isEncryptionEnabled: boolean;
-  isCompressionEnabled: boolean;
+  isEncryptionEnabled?: boolean;
+  isCompressionEnabled?: boolean;
   // TODO migrate to SyncProviderId
   syncProvider: LegacySyncProvider | null;
   syncInterval: number;
@@ -190,8 +197,6 @@ export type GlobalConfigState = Readonly<{
 
   sync: SyncConfig;
   dailySummaryNote?: DailySummaryNote;
-
-  [MODEL_VERSION_KEY]?: number;
 }>;
 
 export type GlobalConfigSectionKey = keyof GlobalConfigState | 'EMPTY';
@@ -213,6 +218,7 @@ export interface LimitedFormlyFieldConfig<FormModel>
 
 export type CustomCfgSection =
   | 'FILE_IMPORT_EXPORT'
+  | 'SYNC_SAFETY_BACKUPS'
   | 'JIRA_CFG'
   | 'SIMPLE_COUNTER_CFG'
   | 'OPENPROJECT_CFG';

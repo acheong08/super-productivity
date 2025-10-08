@@ -1,16 +1,15 @@
-import { Injectable, inject } from '@angular/core';
-import { SearchQueryParams } from '../../features/search-bar/search-bar.model';
+import { inject, Injectable } from '@angular/core';
+import { SearchQueryParams } from '../../pages/search-page/search-page.model';
 import { first } from 'rxjs/operators';
-import { TODAY_TAG } from '../../features/tag/tag.const';
 import { devError } from '../../util/dev-error';
 import { TaskService } from '../../features/tasks/task.service';
 import { ProjectService } from '../../features/project/project.service';
 import { Router } from '@angular/router';
 import { Task } from '../../features/tasks/task.model';
-import { getWorklogStr } from '../../util/get-work-log-str';
-import { WorkContextService } from '../../features/work-context/work-context.service';
+import { getDbDateStr } from '../../util/get-db-date-str';
 import { SnackService } from '../../core/snack/snack.service';
 import { T } from '../../t.const';
+import { Log } from '../../core/log';
 
 @Injectable({
   providedIn: 'root',
@@ -19,12 +18,14 @@ export class NavigateToTaskService {
   private _taskService = inject(TaskService);
   private _projectService = inject(ProjectService);
   private _router = inject(Router);
-  private _workContextService = inject(WorkContextService);
   private _snackService = inject(SnackService);
 
   async navigate(taskId: string, isArchiveTask: boolean = false): Promise<void> {
     try {
       const task = await this._taskService.getByIdFromEverywhere(taskId);
+      if (!task) {
+        throw new Error(`Task with id ${taskId} not found`);
+      }
       const location = await this._getLocation(task, isArchiveTask);
 
       const queryParams: SearchQueryParams = { focusItem: taskId };
@@ -36,7 +37,7 @@ export class NavigateToTaskService {
         await this._router.navigate([location], { queryParams });
       }
     } catch (err) {
-      console.error(err);
+      Log.err(err);
       this._snackService.open({
         type: 'ERROR',
         msg: T.GLOBAL_SNACK.NAVIGATE_TO_TASK_ERR,
@@ -47,23 +48,20 @@ export class NavigateToTaskService {
   private async _getLocation(task: Task, isArchiveTask: boolean): Promise<string> {
     const tasksOrWorklog = isArchiveTask ? 'worklog' : 'tasks';
 
-    const taskToCheck = task.parentId
-      ? await this._taskService.getByIdFromEverywhere(task.parentId, isArchiveTask)
-      : task;
-
-    if (
-      taskToCheck.projectId &&
-      taskToCheck.tagIds[0] === TODAY_TAG.id &&
-      this._workContextService.isToday
-    ) {
-      return `/tag/TODAY/${tasksOrWorklog}`;
+    let taskToCheck = task;
+    if (task.parentId) {
+      const parentTask = await this._taskService.getByIdFromEverywhere(
+        task.parentId,
+        isArchiveTask,
+      );
+      if (parentTask) {
+        taskToCheck = parentTask;
+      }
     }
 
     if (taskToCheck.projectId) {
       return `/project/${taskToCheck.projectId}/${tasksOrWorklog}`;
-    } else if (taskToCheck.tagIds[0] === TODAY_TAG.id) {
-      return `/tag/TODAY/${tasksOrWorklog}`;
-    } else if (taskToCheck.tagIds[0]) {
+    } else if (taskToCheck.tagIds?.length > 0 && taskToCheck.tagIds[0]) {
       return `/tag/${taskToCheck.tagIds[0]}/${tasksOrWorklog}`;
     } else {
       devError("Couldn't find task location");
@@ -79,18 +77,18 @@ export class NavigateToTaskService {
   }
 
   private async _getArchivedDate(task: Task): Promise<string> {
-    let dateStr = Object.keys(task.timeSpentOnDay)[0];
+    let dateStr = task.timeSpentOnDay ? Object.keys(task.timeSpentOnDay)[0] : undefined;
     if (dateStr) return dateStr;
 
     if (task.parentId) {
       const tasks = await this._taskService.getArchivedTasks();
-      const parentTask = tasks.find(
-        (innerTask) => innerTask.id === task.parentId,
-      ) as Task;
-      dateStr = Object.keys(parentTask.timeSpentOnDay)[0];
-      return dateStr ?? getWorklogStr(parentTask.created);
+      const parentTask = tasks.find((innerTask) => innerTask.id === task.parentId);
+      if (parentTask && parentTask.timeSpentOnDay) {
+        dateStr = Object.keys(parentTask.timeSpentOnDay)[0];
+        return dateStr ?? getDbDateStr(parentTask.created);
+      }
     }
 
-    return getWorklogStr(task.created);
+    return getDbDateStr(task.created);
   }
 }

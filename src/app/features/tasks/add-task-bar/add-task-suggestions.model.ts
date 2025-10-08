@@ -17,9 +17,10 @@ export interface AddTaskSuggestion {
   taskId?: string;
   taskIssueId?: string;
   isFromOtherContextAndTagOnlySearch?: boolean;
+  isArchivedTask?: boolean;
 
   // for add from tag context only
   ctx?: Tag | Project;
   tagIds?: string[];
-  projectId?: string;
+  projectId: string;
 }

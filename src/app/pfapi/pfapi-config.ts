@@ -6,6 +6,7 @@ import {
   PfapiBaseCfg,
 } from './api';
 import { ProjectState } from '../features/project/project.model';
+import { MenuTreeState } from '../features/menu-tree/store/menu-tree.model';
 import { GlobalConfigState } from '../features/config/global-config.model';
 import { Reminder } from '../features/reminder/reminder.model';
 import {
@@ -35,12 +36,12 @@ import { initialSimpleCounterState } from '../features/simple-counter/store/simp
 import { initialTaskRepeatCfgState } from '../features/task-repeat-cfg/store/task-repeat-cfg.reducer';
 import { DROPBOX_APP_KEY } from '../imex/sync/dropbox/dropbox.const';
 import { Webdav } from './api/sync/providers/webdav/webdav';
-import { isDataRepairPossible } from '../core/data-repair/is-data-repair-possible.util';
+import { isDataRepairPossible } from './repair/is-data-repair-possible.util';
 import {
-  isRelatedModelDataValid,
   getLastValidityError,
+  isRelatedModelDataValid,
 } from './validate/is-related-model-data-valid';
-import { dataRepair } from '../core/data-repair/data-repair.util';
+import { dataRepair } from './repair/data-repair';
 import { LocalFileSyncElectron } from './api/sync/providers/local-file-sync/local-file-sync-electron';
 import { IS_ELECTRON } from '../app.constants';
 import { IS_ANDROID_WEB_VIEW } from '../util/is-android-web-view';
@@ -52,12 +53,23 @@ import {
 } from '../features/time-tracking/time-tracking.model';
 import { initialTimeTrackingState } from '../features/time-tracking/store/time-tracking.reducer';
 import { CROSS_MODEL_MIGRATIONS } from './migrate/cross-model-migrations';
-import { validateAllData, appDataValidators } from './validate/validation-fn';
+import { appDataValidators, validateAllData } from './validate/validation-fn';
+import { fixEntityStateConsistency } from '../util/check-fix-entity-state-consistency';
+import { IValidation } from 'typia';
+import { PFLog } from '../core/log';
+import {
+  initialPluginMetaDataState,
+  initialPluginUserDataState,
+  PluginMetaDataState,
+  PluginUserDataState,
+} from '../plugins/plugin-persistence.model';
+import { menuTreeInitialState } from '../features/menu-tree/store/menu-tree.reducer';
 
-export const CROSS_MODEL_VERSION = 2 as const;
+export const CROSS_MODEL_VERSION = 4.3 as const;
 
 export type PfapiAllModelCfg = {
   project: ModelCfg<ProjectState>;
+  menuTree: ModelCfg<MenuTreeState>;
   globalConfig: ModelCfg<GlobalConfigState>;
   planner: ModelCfg<PlannerState>;
   boards: ModelCfg<BoardsState>;
@@ -78,6 +90,9 @@ export type PfapiAllModelCfg = {
 
   timeTracking: ModelCfg<TimeTrackingState>;
 
+  pluginUserData: ModelCfg<PluginUserDataState | undefined>;
+  pluginMetadata: ModelCfg<PluginMetaDataState | undefined>;
+
   archiveYoung: ModelCfg<ArchiveModel>;
   archiveOld: ModelCfg<ArchiveModel>;
 };
@@ -88,6 +103,7 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
     defaultData: initialTaskState,
     isMainFileModel: true,
     validate: appDataValidators.task,
+    repair: fixEntityStateConsistency,
   },
   timeTracking: {
     defaultData: initialTimeTrackingState,
@@ -99,21 +115,25 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
     defaultData: initialProjectState,
     isMainFileModel: true,
     validate: appDataValidators.project,
+    repair: fixEntityStateConsistency,
   },
   tag: {
     defaultData: initialTagState,
     isMainFileModel: true,
     validate: appDataValidators.tag,
+    repair: fixEntityStateConsistency,
   },
   simpleCounter: {
     defaultData: initialSimpleCounterState,
     isMainFileModel: true,
     validate: appDataValidators.simpleCounter,
+    repair: fixEntityStateConsistency,
   },
   note: {
     defaultData: initialNoteState,
     isMainFileModel: true,
     validate: appDataValidators.note,
+    repair: fixEntityStateConsistency,
   },
   taskRepeatCfg: {
     defaultData: initialTaskRepeatCfgState,
@@ -121,8 +141,8 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
     // needs to be due to last creation data being saved to model
     isMainFileModel: true,
     validate: appDataValidators.taskRepeatCfg,
+    repair: fixEntityStateConsistency,
   },
-
   reminders: {
     defaultData: [],
     isMainFileModel: true,
@@ -138,6 +158,22 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
     isMainFileModel: true,
     validate: appDataValidators.boards,
   },
+  // we put it in main file model because it is likely as notes to get changed
+  menuTree: {
+    defaultData: menuTreeInitialState,
+    validate: appDataValidators.menuTree,
+  },
+
+  //-------------------------------
+
+  pluginUserData: {
+    defaultData: initialPluginUserDataState,
+    validate: appDataValidators.pluginUserData,
+  },
+  pluginMetadata: {
+    defaultData: initialPluginMetaDataState,
+    validate: appDataValidators.pluginMetadata,
+  },
 
   //-------------------------------
   globalConfig: {
@@ -148,20 +184,24 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
   issueProvider: {
     defaultData: issueProviderInitialState,
     validate: appDataValidators.issueProvider,
+    repair: fixEntityStateConsistency,
   },
 
   // Metric models
   metric: {
     defaultData: initialMetricState,
     validate: appDataValidators.metric,
+    repair: fixEntityStateConsistency,
   },
   improvement: {
     defaultData: initialImprovementState,
     validate: appDataValidators.improvement,
+    repair: fixEntityStateConsistency,
   },
   obstruction: {
     defaultData: initialObstructionState,
     validate: appDataValidators.obstruction,
+    repair: fixEntityStateConsistency,
   },
 
   archiveYoung: {
@@ -171,6 +211,12 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
       lastTimeTrackingFlush: 0,
     },
     validate: appDataValidators.archiveYoung,
+    repair: (d) => {
+      return {
+        ...d,
+        task: fixEntityStateConsistency(d.task),
+      };
+    },
   },
   archiveOld: {
     defaultData: {
@@ -179,10 +225,17 @@ export const PFAPI_MODEL_CFGS: PfapiAllModelCfg = {
       lastTimeTrackingFlush: 0,
     },
     validate: appDataValidators.archiveOld,
+    repair: (d) => {
+      return {
+        ...d,
+        task: fixEntityStateConsistency(d.task),
+      };
+    },
   },
 } as const;
 
 export const fileSyncElectron = new LocalFileSyncElectron();
+export const fileSyncDroid = new LocalFileSyncAndroid();
 
 export const PFAPI_SYNC_PROVIDERS = [
   new Dropbox({
@@ -191,15 +244,21 @@ export const PFAPI_SYNC_PROVIDERS = [
   }),
   new Webdav(environment.production ? undefined : `/DEV`),
   ...(IS_ELECTRON ? [fileSyncElectron] : []),
-  ...(IS_ANDROID_WEB_VIEW ? [new LocalFileSyncAndroid()] : []),
+  ...(IS_ANDROID_WEB_VIEW ? [fileSyncDroid] : []),
 ];
 
 export const PFAPI_CFG: PfapiBaseCfg<PfapiAllModelCfg> = {
   crossModelVersion: CROSS_MODEL_VERSION,
   validate: (data) => {
-    console.time('validateAllData');
+    // console.time('validateAllData');
     const r = validateAllData(data);
-    console.time('relatedDataValidation');
+
+    if (!environment.production && !r.success) {
+      PFLog.log(r);
+      alert('VALIDATION ERROR ');
+    }
+
+    // console.time('relatedDataValidation');
     if (r.success && !isRelatedModelDataValid(data)) {
       return {
         success: false,
@@ -213,19 +272,19 @@ export const PFAPI_CFG: PfapiBaseCfg<PfapiAllModelCfg> = {
         ],
       };
     }
-    console.timeEnd('relatedDataValidation');
-    console.timeEnd('validateAllData');
+    // console.timeEnd('relatedDataValidation');
+    // console.timeEnd('validateAllData');
     return r;
   },
   onDbError: (err) => {
-    console.error(err);
+    PFLog.err(err);
     alert('DB ERROR: ' + err);
   },
-  repair: (data: any) => {
+  repair: (data: any, errors: IValidation.IError[]) => {
     if (!isDataRepairPossible(data)) {
       throw new DataRepairNotPossibleError(data);
     }
-    return dataRepair(data) as AppDataCompleteNew;
+    return dataRepair(data, errors) as AppDataCompleteNew;
   },
   crossModelMigrations: CROSS_MODEL_MIGRATIONS,
 };

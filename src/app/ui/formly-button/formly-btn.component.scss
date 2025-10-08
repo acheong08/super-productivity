@@ -1,6 +1,8 @@
-@import '../../../_variables.scss';
-
 :host {
   display: block;
-  margin-bottom: $s * 2;
+  margin-bottom: var(--s2);
+}
+
+.value {
+  line-break: anywhere;
 }

@@ -8,7 +8,6 @@ import {
   HostListener,
   inject,
   Input,
-  LOCALE_ID,
   OnInit,
   viewChild,
 } from '@angular/core';
@@ -28,17 +27,18 @@ import { MatDialog } from '@angular/material/dialog';
 import { DialogEditTaskRepeatCfgComponent } from '../../task-repeat-cfg/dialog-edit-task-repeat-cfg/dialog-edit-task-repeat-cfg.component';
 import { TaskRepeatCfg } from '../../task-repeat-cfg/task-repeat-cfg.model';
 import { TranslateModule } from '@ngx-translate/core';
-import { T } from 'src/app/t.const';
+import { T } from '../../../t.const';
 import { TaskCopy } from '../../tasks/task.model';
 import { selectTaskByIdWithSubTaskData } from '../../tasks/store/task.selectors';
-import { deleteTask, updateTask } from '../../tasks/store/task.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
+import { TaskService } from '../../tasks/task.service';
 import { DialogTimeEstimateComponent } from '../../tasks/dialog-time-estimate/dialog-time-estimate.component';
 import { IS_TOUCH_PRIMARY } from '../../../util/is-mouse-primary';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { DialogTaskDetailPanelComponent } from '../../tasks/dialog-task-detail-panel/dialog-task-detail-panel.component';
 import { TaskContextMenuComponent } from '../../tasks/task-context-menu/task-context-menu.component';
 import { BehaviorSubject, of } from 'rxjs';
 import { IssueService } from '../../issue/issue.service';
+import { DateTimeFormatService } from '../../../core/date-time-format/date-time-format.service';
 
 @Component({
   selector: 'schedule-event',
@@ -53,12 +53,15 @@ export class ScheduleEventComponent implements OnInit {
   private _matDialog = inject(MatDialog);
   private _cd = inject(ChangeDetectorRef);
   private _issueService = inject(IssueService);
-  private locale = inject(LOCALE_ID);
+  private _dateTimeFormatService = inject(DateTimeFormatService);
+  private _taskService = inject(TaskService);
 
   T: typeof T = T;
   @HostBinding('title') hoverTitle: string = '';
   @HostBinding('class') cssClass: string = '';
   @HostBinding('style') style: string = '';
+
+  @Input() isMonthView: boolean = false;
 
   title: string = '';
   se!: ScheduleEvent;
@@ -75,9 +78,6 @@ export class ScheduleEventComponent implements OnInit {
     | 'CAL_PROJECTION'
     | 'SPLIT_CONTINUE'
     | 'LUNCH_BREAK' = 'SPLIT_CONTINUE';
-
-  is12HourFormat = Intl.DateTimeFormat(this.locale, { hour: 'numeric' }).resolvedOptions()
-    .hour12;
 
   contextMenuPosition: { x: string; y: string } = { x: '0px', y: '0px' };
 
@@ -99,13 +99,13 @@ export class ScheduleEventComponent implements OnInit {
       (this.se as any)?.data?.title ||
       (this.se.type === SVEType.LunchBreak ? 'Lunch Break' : 'TITLE');
 
+    const is12Hour = !this._dateTimeFormatService.is24HourFormat;
     const startClockStr = getClockStringFromHours(
-      this.is12HourFormat && this.se.startHours > 12
-        ? this.se.startHours - 12
-        : this.se.startHours,
+      is12Hour && this.se.startHours > 12 ? this.se.startHours - 12 : this.se.startHours,
     );
+    const endHours = this.se.startHours + this.se.timeLeftInHours;
     const endClockStr = getClockStringFromHours(
-      this.se.startHours + this.se.timeLeftInHours,
+      is12Hour && endHours > 12 ? endHours - 12 : endHours,
     );
     // this.durationStr = (this.se.timeLeftInHours * 60).toString().substring(0, 4);
     this.hoverTitle = startClockStr + ' - ' + endClockStr + '  ' + this.title;
@@ -204,9 +204,8 @@ export class ScheduleEventComponent implements OnInit {
   @HostListener('click')
   async clickHandler(): Promise<void> {
     if (this.task) {
-      this._matDialog.open(DialogTaskDetailPanelComponent, {
-        data: { taskId: this.task.id },
-      });
+      // Use bottom panel on mobile, sidebar on desktop
+      this._taskService.setSelectedId(this.task.id);
     } else if (
       this.se.type === SVEType.RepeatProjection ||
       this.se.type === SVEType.RepeatProjectionSplit ||
@@ -216,6 +215,7 @@ export class ScheduleEventComponent implements OnInit {
       this._matDialog.open(DialogEditTaskRepeatCfgComponent, {
         data: {
           repeatCfg,
+          targetDate: (this.se.id.includes('_') && this.se.id.split('_')[1]) || undefined,
         },
       });
     } else if (this.se.type === SVEType.CalendarEvent) {
@@ -255,7 +255,7 @@ export class ScheduleEventComponent implements OnInit {
         .subscribe((p) => {
           this._elRef.nativeElement.style.setProperty(
             '--project-color',
-            p ? p.theme.primary : '',
+            p ? p.theme?.primary : '',
           );
         });
     }
@@ -274,7 +274,7 @@ export class ScheduleEventComponent implements OnInit {
         delay(50),
       )
       .subscribe((task) => {
-        this._store.dispatch(deleteTask({ task }));
+        this._store.dispatch(TaskSharedActions.deleteTask({ task }));
       });
   }
 
@@ -287,7 +287,7 @@ export class ScheduleEventComponent implements OnInit {
 
   markAsDone(): void {
     this._store.dispatch(
-      updateTask({
+      TaskSharedActions.updateTask({
         task: {
           id: this.task.id,
           changes: {
@@ -300,7 +300,7 @@ export class ScheduleEventComponent implements OnInit {
 
   markAsUnDone(): void {
     this._store.dispatch(
-      updateTask({
+      TaskSharedActions.updateTask({
         task: {
           id: this.task.id,
           changes: {

@@ -1,4 +1,4 @@
-import { Injectable, NgZone, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { SnackParams } from './snack.model';
 import { Observable, Subject } from 'rxjs';
@@ -9,17 +9,16 @@ import { TranslateService } from '@ngx-translate/core';
 import { MatSnackBar, MatSnackBarRef, SimpleSnackBar } from '@angular/material/snack-bar';
 import { Actions, ofType } from '@ngrx/effects';
 import { setActiveWorkContext } from '../../features/work-context/store/work-context.actions';
-import { debounce } from 'helpful-decorators';
+import { debounce } from '../../util/decorators';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SnackService {
-  private _store$ = inject<Store<any>>(Store);
+  private _store$ = inject(Store);
   private _translateService = inject(TranslateService);
   private _actions$ = inject(Actions);
   private _matSnackBar = inject(MatSnackBar);
-  private _ngZone = inject(NgZone);
 
   private _ref?: MatSnackBarRef<SnackCustomComponent | SimpleSnackBar>;
 
@@ -81,7 +80,7 @@ export class SnackService {
 
     if (showWhile$ || promise || isSpinner) {
       // TODO check if still needed
-      (cfg as any).panelClass = 'polling-snack';
+      (cfg as { panelClass: string }).panelClass = 'polling-snack';
     }
 
     switch (type) {
@@ -89,11 +88,8 @@ export class SnackService {
       case 'CUSTOM':
       case 'SUCCESS':
       default: {
-        // @see https://stackoverflow.com/questions/50101912/snackbar-position-wrong-when-use-errorhandler-in-angular-5-and-material
-        this._ngZone.run(() => {
-          this._ref = this._matSnackBar.openFromComponent(SnackCustomComponent, cfg);
-          this._adjustSnackPos();
-        });
+        // Opening snackbar directly without NgZone
+        this._ref = this._matSnackBar.openFromComponent(SnackCustomComponent, cfg);
         break;
       }
     }
@@ -116,34 +112,5 @@ export class SnackService {
           destroySubs();
         });
     }
-  }
-
-  private _adjustSnackPos(): void {
-    // only relevant on mobile
-    if (window.innerWidth >= 600) {
-      return;
-    }
-
-    const checkExecPosCheck = (): void => {
-      const el: HTMLElement | null = document.querySelector('.mat-mdc-snack-bar-handset');
-
-      if (!el) {
-        return;
-      }
-      if (document.querySelector('add-task-bar.global')) {
-        el.style.marginBottom = '86px';
-      } else if (document.querySelector('.FAB-BTN')) {
-        el.style.marginBottom = '78px';
-      }
-    };
-    setTimeout(() => {
-      checkExecPosCheck();
-    });
-    setTimeout(() => {
-      checkExecPosCheck();
-    }, 60);
-    setTimeout(() => {
-      checkExecPosCheck();
-    }, 180);
   }
 }

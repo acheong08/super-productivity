@@ -17,24 +17,27 @@
       "MSG": "Möchten Sie Super Productivity als PWA installieren?"
     },
     "B_OFFLINE": "Sie sind vom Internet getrennt. Das Synchronisieren und Anfordern von Daten des Issue-Providers funktioniert nicht.",
+    "CONTEXT_MENU": {
+      "CHANGE_BACKGROUND": "Hintergrund ändern"
+    },
     "UPDATE_MAIN_MODEL": "Super Productivity hat ein großes Update bekommen! Einige Migrationen für Ihre Daten ist erforderlich. Bitte beachten Sie, dass Ihre Daten dadurch nicht mit älteren Versionen der App kompatibel sind.",
     "UPDATE_MAIN_MODEL_NO_UPDATE": "Kein Modellupdate ausgewählt. Bitte beachten Sie, dass Sie ein Downgrade auf die letzte Version durchführen müssen, wenn Sie das Modell-Upgrade nicht durchführen möchten.",
     "UPDATE_WEB_APP": "Neue Version verfügbar. Neue Version laden?"
+  },
+  "BN": {
+    "SHOW_ISSUE_PANEL": "Vorgangspanel anzeigen",
+    "SHOW_NOTES": "Projekt-Notizen anzeigen",
+    "SHOW_TASK_VIEW_CUSTOMIZER_PANEL": "Filter-/Gruppen-/Sortierfenster anzeigen"
   },
   "BL": {
     "NO_TASKS": "Derzeit befinden sich keine Aufgaben in Ihrem Backlog"
   },
   "CONFIRM": {
     "AUTO_FIX": "Ihre Daten scheinen beschädigt zu sein. Möchten Sie versuchen, das Problem automatisch zu beheben? Dies kann zu einem teilweisen Datenverlust führen.",
-    "DELETE_STRAY_BACKUP": "Möchten Sie das Backup löschen, um diesen Dialog nicht zu sehen?",
     "RELOAD_AFTER_IDB_ERROR": "Kann nicht auf die Datenbank zugreifen. :( Mögliche Ursachen sind ein Hintergrundupdate der App oder zu wenig Speicherplatz. Drücken Sie \"OK\", um die App neu zu laden (kann auf einigen Plattformen einen manuellen Neustart der App erfordern).",
     "RESTORE_FILE_BACKUP": "Es scheint KEINE DATEN zu geben, aber unter \"{{dir}}\" sind Backups verfügbar. Möchten Sie das neueste Backup von {{from}} wiederherstellen?",
     "RESTORE_FILE_BACKUP_ANDROID": "Es scheint KEINE DATEN zu geben, aber es ist ein Backup verfügbar. Möchten Sie es laden?",
     "RESTORE_STRAY_BACKUP": "Bei der letzten Synchronisierung ist möglicherweise ein Fehler aufgetreten. Möchten Sie das letzte Backup wiederherstellen?"
-  },
-  "DATETIME_INPUT": {
-    "IN": "in {{time}}",
-    "TOMORROW": "morgen {{time}}"
   },
   "DATETIME_SCHEDULE": {
     "LATER_TODAY": "Im Laufe des Tages",
@@ -42,6 +45,13 @@
     "PLACEHOLDER": "Bitte wählen Sie ein Datum",
     "PRESS_ENTER_AGAIN": "Drücken Sie zum Speichern erneut die Eingabetaste",
     "TOMORROW": "Morgen"
+  },
+  "DIALOG_UNSPLASH_PICKER": {
+    "TITLE": "Hintergrundbild von Unsplash auswählen",
+    "SEARCH_LABEL": "Bilder suchen",
+    "SEARCH_PLACEHOLDER": "z.B., Natur, Berge, abstrakt",
+    "NO_RESULTS": "Keine Bilder gefunden. Versuchen Sie einen anderen Suchbegriff.",
+    "BY": "von"
   },
   "F": {
     "ATTACHMENT": {
@@ -77,6 +87,10 @@
       },
       "FORM": {
         "ADD_NEW_PANEL": "Neues Panel hinzufügen",
+        "BACKLOG_TASK_FILTER_ALL": "Alle",
+        "BACKLOG_TASK_FILTER_NO_BACKLOG": "Ausschließen",
+        "BACKLOG_TASK_FILTER_ONLY_BACKLOG": "Nur Rückstand",
+        "BACKLOG_TASK_FILTER_TYPE": "Rückstandsaufgaben",
         "COLUMNS": "Spalten",
         "TAGS_EXCLUDED": "Ausgeschlossene Tags",
         "TAGS_REQUIRED": "Erforderliche Tags",
@@ -114,11 +128,24 @@
         "TITLE": "CalDav"
       },
       "ISSUE_CONTENT": {
+        "ASSIGNEE": "Zuständiger",
+        "AT": "Bei",
+        "ATTACHMENTS": "Anhänge",
+        "CHANGED": "Geändert",
+        "COMMENTS": "Kommentare",
+        "COMPONENTS": "Komponenten",
         "DESCRIPTION": "Beschreibung",
         "LABELS": "Kategorien",
+        "LIST_OF_CHANGES": "Liste der Änderungen",
         "MARK_AS_CHECKED": "Updates als erledigt markieren",
+        "ON": "auf",
+        "RELATED": "Verwandt",
         "STATUS": "Status",
-        "SUMMARY": "Zusammenfassung"
+        "STORY_POINTS": "Story-Punkte",
+        "SUB_TASKS": "Unteraufgaben",
+        "SUMMARY": "Zusammenfassung",
+        "WORKLOG": "Arbeitsprotokoll",
+        "WRITE_A_COMMENT": "Einen Kommentar schreiben"
       },
       "S": {
         "CALENDAR_NOT_FOUND": "CalDav: Kalender \"{{calendarName}}\" nicht gefunden",
@@ -135,6 +162,10 @@
         "TXT_PAST": "<strong>{{title}}</strong> startete um <strong>{{start}}</strong> !",
         "TXT_PAST_MULTIPLE": "<strong>{{title}}</strong> gestartet um <strong>{{start}}</strong> !<br> (und {{nrOfOtherBanners}} weitere Ereignisse sind fällig)"
       },
+      "EVENT_STRINGS": {
+        "EVENT_STR": "Ereignis",
+        "EVENTS_STR": "Ereignisse"
+      },
       "S": {
         "CAL_PROVIDER_ERROR": "Fehler beim Kalender-Provider: {{errTxt}}"
       }
@@ -144,12 +175,20 @@
         "UPDATE_SECTION": "Aktualisierte Einstellungen für <strong>{{sectionKey}}</strong>"
       }
     },
+    "D_RATE": {
+      "A_HOW": "Wie und wo zu bewerten",
+      "BTN_DONT_BOTHER": "Belästige mich nicht wieder",
+      "TITLE": "🙈 Verzeihung, aber...",
+      "TXT": "Sie würden dem Projekt immens helfen, wenn Sie <strong>es gut bewerten, falls Sie es mögen!</strong>"
+    },
     "DOMINA_MODE": {
       "FORM": {
         "HELP": "Wiederholt den konfigurierten Satz alle X mal, wenn die Zeit für eine Aufgabe erfasst wird.",
         "L_INTERVAL": "Intervall zum Wiederholen einer Phrase",
         "L_TEXT": "Text",
         "L_TEXT_DESCRIPTION": "Beispiel: „Arbeite an $ {currentTaskTitle} !",
+        "L_VOICE": "Eine Stimme auswählen",
+        "L_VOICE_DESCRIPTION": "Wählen Sie eine Stimme",
         "TITLE": "Domina-Modus"
       }
     },
@@ -172,6 +211,9 @@
     "FOCUS_MODE": {
       "B": {
         "SESSION_RUNNING": "Fokussierungssitzung läuft",
+        "POMODORO_SESSION_RUNNING": "Pomodoro Sitzung #{{cycleNr}} läuft",
+        "BREAK_RUNNING": "Die Pause läuft",
+        "POMODORO_BREAK_RUNNING": "Die Pause #{{cycleNr}} läuft",
         "TO_FOCUS_OVERLAY": "Zur Fokussierungsüberlagerung"
       },
       "BACK_TO_PLANNING": "Zurück zur Planung",
@@ -196,11 +238,23 @@
       "SELECT_ANOTHER_TASK": "Wählen Sie eine andere Aufgabe aus",
       "SELECT_TASK": "Wählen Sie die Aufgabe aus, auf die Sie sich konzentrieren möchten",
       "SESSION_COMPLETED": "Fokussierungssitzung abgeschlossen!",
+      "POMODORO_SESSION_COMPLETED": "Pomodoro Session Completed!",
       "SET_FOCUS_SESSION_DURATION": "Legen Sie die Dauer der Fokussitzung fest",
       "SHOW_HIDE_NOTES_AND_ATTACHMENTS": "Aufgabennotizen und Anhänge ein-/ausblenden",
       "START_FOCUS_SESSION": "Starten Sie die Fokussitzung",
       "START_NEXT_FOCUS_SESSION": "Starten Sie die nächste Fokussitzung",
-      "WORKED_FOR": "Sie arbeiten bereits seit"
+      "WORKED_FOR": "Sie arbeiten bereits seit",
+      "BREAK_RELAX_MSG": "Nehmen Sie sich einen Moment Zeit zum Entspannen",
+      "SKIP_BREAK": "Pause überspringen",
+      "CONTINUE_TO_NEXT_SESSION": "Weiter zur nächsten Sitzung",
+      "FOCUS_TIME_TOOLTIP": "Fokus Zeit",
+      "CURRENT_SESSION_TIME_TOOLTIP": "Aktuelle Sitzungszeit",
+      "COMPLETE_SESSION": "Vollständige Sitzung",
+      "CONTINUE_SESSION": "Sitzung fortsetzen",
+      "LONG_BREAK": "Lange Pause",
+      "SHORT_BREAK": "Kurze Pause",
+      "LONG_BREAK_TITLE": "Lange Pause - Zyklus {{cycle}}",
+      "SHORT_BREAK_TITLE": "Kurze Pause - Zyklus {{cycle}}"
     },
     "GITEA": {
       "DIALOG_INITIAL": {
@@ -328,6 +382,39 @@
       "DEFAULT_PROJECT_DESCRIPTION": "Projekt, das Aufgaben zugewiesen wurde, die aus Ausgaben erstellt wurden.",
       "DEFAULT_PROJECT_LABEL": "Standard-Superproduktivitätsprojekt",
       "HOW_TO_GET_A_TOKEN": "Wie bekomme ich einen Token?",
+      "ISSUE_CONTENT": {
+        "ASSIGNEE": "Zuständiger",
+        "AT": "Bei",
+        "ATTACHMENTS": "Anhänge",
+        "AUTHOR": "Autor",
+        "CATEGORY": "Kategorie",
+        "CHANGED": "Geändert",
+        "COMMENTS": "Kommentare",
+        "COMPONENTS": "Komponenten",
+        "DESCRIPTION": "Beschreibung",
+        "DONE_RATIO": "Fertigstellungsquote",
+        "DUE_DATE": "Fälligkeitsdatum",
+        "LABELS": "Beschriftungen",
+        "LAST_COMMENT": "Letzter Kommentar",
+        "LIST_OF_CHANGES": "Liste der Änderungen",
+        "LOAD_ALL_COMMENTS": "Lade alle {{nr}} Kommentare",
+        "LOAD_DESCRIPTION_AND_ALL_COMMENTS": "Lade Beschreibung & alle Kommentare",
+        "LOCATION": "Ort",
+        "MARK_AS_CHECKED": "Updates als überprüft markieren",
+        "ON": "auf",
+        "PRIORITY": "Priorität",
+        "RELATED": "Verwandt",
+        "START": "Start",
+        "STATUS": "Status",
+        "STORY_POINTS": "Story-Punkte",
+        "SUB_TASKS": "Unteraufgaben",
+        "SUMMARY": "Zusammenfassung",
+        "TIME_SPENT": "Aufgewendete Zeit",
+        "TYPE": "Typ",
+        "VERSION": "Version",
+        "WORKLOG": "Arbeitsprotokoll",
+        "WRITE_A_COMMENT": "Einen Kommentar schreiben"
+      },
       "S": {
         "ERR_GENERIC": "{{issueProviderName}} Fehler: {{errTxt}}",
         "ERR_NETWORK": "{{issueProviderName}}: Anfrage aufgrund eines clientseitigen Netzwerkfehlers fehlgeschlagen",
@@ -475,6 +562,14 @@
         "WELCOME_USER": "Willkommen {{user}}!"
       }
     },
+    "MARKDOWN_PASTE": {
+      "CONFIRM_ADD_TO_SUB_TASK_NOTES": "Die eingefügte Markdown-Liste zu den Notizen der Unteraufgabe \"{{parentTaskTitle}}\" hinzufügen?",
+      "CONFIRM_PARENT_TASKS": "Erstellen Sie <strong>{{tasksCount}} neue Aufgaben</strong> aus der eingefügten Markdown-Liste?",
+      "CONFIRM_PARENT_TASKS_WITH_SUBS": "Erstellen Sie <strong>{{tasksCount}} neue Aufgaben und {{subTasksCount}} Unteraufgaben</strong> aus der eingefügten Markdown-Liste?",
+      "CONFIRM_SUB_TASKS": "Erstellen Sie {{tasksCount}} neue Unteraufgaben aus der eingefügten Markdown-Liste?",
+      "CONFIRM_SUB_TASKS_WITH_PARENT": "Erstellen Sie <strong>{{tasksCount}} neue Unteraufgaben unter \"{{parentTaskTitle}}\"</strong> aus der eingefügten Markdown-Liste?",
+      "DIALOG_TITLE": "Eingefügte Markdown-Liste erkannt!"
+    },
     "METRIC": {
       "BANNER": {
         "CHECK": "Ich hab es geschafft!"
@@ -597,17 +692,20 @@
       },
       "ISSUE_CONTENT": {
         "ASSIGNEE": "Bearbeiter",
+        "ATTACHMENTS": "Anhänge",
         "DESCRIPTION": "Beschreibung",
         "MARK_AS_CHECKED": "Updates als erledigt markieren",
         "STATUS": "Status",
         "SUMMARY": "Zusammenfassung",
-        "TYPE": "Typ"
+        "TYPE": "Typ",
+        "UPLOAD_ATTACHMENT": "Hochladen zur Aufgabe"
       },
       "ISSUE_STRINGS": {
         "ISSUE_STR": "Arbeitspaket",
         "ISSUES_STR": "Arbeitspakete"
       },
       "S": {
+        "ERR_NO_FILE": "Keine Datei ausgewählt",
         "ERR_UNKNOWN": "OpenProject: Unbekannter Fehler {{statusCode}} {{errorMsg}}. Ist CORS für den Server richtig konfiguriert?",
         "POST_TIME_SUCCESS": "OpenProject: Zeiteintrag für {{issueTitle}}erfolgreich erstellt",
         "TRANSITION": "OpenProject: Setzen Sie das Issue „ {{issueKey}}“ auf „ {{name}}“",
@@ -621,11 +719,6 @@
           "ADD_TO_TODAY": "Zu Heute hinzufügen",
           "RE_PLAN_ALL": "Alle verschieben",
           "TITLE": "Geplante Aufgaben zu Heute hinzufügen"
-        },
-        "PLAN_FOR_DAY": {
-          "REMINDER_WARNING": "Dadurch wird die Erinnerung von der Aufgabe entfernt! Drücken Sie Escape, um abzubrechen.",
-          "REMOVE_PLAN_DATE": "Plandatum entfernen",
-          "TITLE": "Aufgabe für den Tag planen"
         }
       },
       "EDIT_REPEATED_TASK": "Wiederholte Aufgabe bearbeiten '{{taskName}}'",
@@ -736,7 +829,7 @@
         "L_HUE_PRIMARY": "Schwellenwert für dunklen Text auf Grundfarbenhintergrund",
         "L_HUE_WARN": "Schwellenwert für dunklen Text auf farbigem Hintergrund warnen",
         "L_IS_AUTO_CONTRAST": "Automatisch Textfarben einstellen für beste Lesbarkeit",
-        "L_IS_DISABLE_BACKGROUND_GRADIENT": "Farbigen Hintergrundverlauf deaktivieren",
+        "L_IS_DISABLE_BACKGROUND_TINT": "Farbigen Hintergrundverlauf deaktivieren",
         "L_IS_REDUCED_THEME": "Reduzierte Benutzeroberfläche verwenden (keine Kästchen um Aufgaben)",
         "L_THEME_COLOR": "Farbe des Themas",
         "L_TITLE": "Titel",
@@ -752,6 +845,43 @@
         "UNARCHIVED": "Projekt dearchiviert",
         "UPDATED": "Projekteinstellungen aktualisiert"
       }
+    },
+    "PROJECT_FOLDER": {
+      "DIALOG": {
+        "CREATE_TITLE": "Ordner erstellen",
+        "EDIT_TITLE": "Ordner bearbeiten",
+        "NAME_LABEL": "Ordnername",
+        "NAME_PLACEHOLDER": "Ordnernamen eingeben",
+        "NAME_REQUIRED": "Ordnername ist erforderlich",
+        "PARENT_LABEL": "Übergeordneter Ordner",
+        "NO_PARENT": "Kein übergeordneter Ordner (Root-Ebene)"
+      },
+      "SELECT": {
+        "LABEL": "Ordner",
+        "PLACEHOLDER": "Ordner wählen",
+        "NO_PARENT": "Kein Ordner (Root-Ebene)"
+      },
+      "CONFIRM_DELETE": "Möchtest du den Ordner \"{{title}}\" wirklich löschen? Alle Projekte in diesem Ordner werden auf die oberste Ebene verschoben.",
+      "TOOLTIP_CREATE": "Projektordner erstellen",
+      "TOOLTIP_VISIBILITY": "Projekte anzeigen/ausblenden"
+    },
+    "TAG_FOLDER": {
+      "DIALOG": {
+        "CREATE_TITLE": "Ordner erstellen",
+        "EDIT_TITLE": "Ordner bearbeiten",
+        "NAME_LABEL": "Ordnername",
+        "NAME_PLACEHOLDER": "Ordnernamen eingeben",
+        "NAME_REQUIRED": "Ordnername ist erforderlich",
+        "PARENT_LABEL": "Übergeordneter Ordner",
+        "NO_PARENT": "Kein übergeordneter Ordner (Root-Ebene)"
+      },
+      "SELECT": {
+        "LABEL": "Ordner",
+        "PLACEHOLDER": "Ordner wählen",
+        "NO_PARENT": "Kein Ordner (Root-Ebene)"
+      },
+      "CONFIRM_DELETE": "Möchtest du den Ordner \"{{title}}\" wirklich löschen? Alle Tags in diesem Ordner werden auf die oberste Ebene verschoben.",
+      "TOOLTIP_CREATE": "Tag-Ordner erstellen"
     },
     "QUICK_HISTORY": {
       "NO_DATA": "Keine Daten für das laufende Jahr",
@@ -805,16 +935,19 @@
       },
       "END": "Arbeitsende",
       "LUNCH_BREAK": "Mittagspause",
+      "MONTH": "Monat",
       "NO_TASKS": "Derzeit gibt es keine Aufgaben. Bitte fügen Sie einige Aufgaben über die Schaltfläche + in der oberen Leiste hinzu.",
       "NOW": "Jetzt",
       "PLAN_END_DAY": "Plan am Ende des Tages",
       "PLAN_START_DAY": "Plan zu Beginn des Tages",
       "START": "Arbeitsbeginn",
-      "TASK_PROJECTION_INFO": "Zukunftsprojektion einer geplanten wiederkehrenden Aufgabe"
+      "TASK_PROJECTION_INFO": "Zukunftsprojektion einer geplanten wiederkehrenden Aufgabe",
+      "WEEK": "Woche"
     },
     "SEARCH_BAR": {
       "INFO": "Klicken Sie auf das Listensymbol, um nach archivierten Aufgaben zu suchen",
       "INFO_ARCHIVED": "Klicken Sie auf das Archivsymbol, um nach normalen Aufgaben zu suchen",
+      "NO_RESULTS": "Keine Aufgaben gefunden, die Ihrer Suche entsprechen",
       "PLACEHOLDER": "Suche nach Aufgabe oder Aufgabenbeschreibung",
       "PLACEHOLDER_ARCHIVED": "Nach archivierten Aufgaben suchen",
       "TOO_MANY_RESULTS": "Zu viele Ergebnisse, bitte grenzen Sie Ihre Suche ein"
@@ -855,11 +988,12 @@
     "SYNC": {
       "A": {
         "ARCHIVE_ONLY_UPLOADED": "Ihre Daten wurden nur teilweise hochgeladen. Bitte versuchen Sie es später noch einmal! Andernfalls können Sie Ihre Daten nicht mit anderen Geräten synchronisieren.",
-        "POSSIBLE_LEGACY_DATA": "Super Productivity hat die Synchronisierung verbessert, indem jetzt zwei separate Dateien statt einer einzigen verwendet werden, was eine wesentlich geringere Datenübertragung ermöglicht. Es wird empfohlen, alle Instanzen von Super Productivity zu aktualisieren und zuerst die Daten von der App-Instanz zu synchronisieren, in der die Daten am neuesten sind. Wenn dies die Daten von Ihrem lokalen Gerät sind, ignorieren Sie bitte diese Warnung und fahren Sie einfach mit dem Hochladen fort, indem Sie den nächsten Dialog bestätigen."
+        "POSSIBLE_LEGACY_DATA": "Super Productivity hat die Synchronisierung verbessert, indem jetzt zwei separate Dateien statt einer einzigen verwendet werden, was eine wesentlich geringere Datenübertragung ermöglicht. Es wird empfohlen, alle Instanzen von Super Productivity zu aktualisieren und zuerst die Daten von der App-Instanz zu synchronisieren, in der die Daten am neuesten sind. Wenn dies die Daten von Ihrem lokalen Gerät sind, ignorieren Sie bitte diese Warnung und fahren Sie einfach mit dem Hochladen fort, indem Sie den nächsten Dialog bestätigen.",
+        "REMOTE_MODEL_VERSION_NEWER": "Die Remote-Modellversion ist neuer als die lokale. Bitte aktualisieren Sie Ihre lokale App auf die neueste Version!"
       },
+      "BTN_SYNC_NOW": "Jetzt Synchronisieren",
       "C": {
         "EMPTY_SYNC": "Sie versuchen, ein leeres Datenobjekt zu synchronisieren. Wenn Sie versuchen, Synchronisation von einer neuen App-Instanz zu aktivieren, klicken Sie einfach \"OK\" um die Daten vom Server zu laden. Andernfalls überprüfen Sie bitte Ihre Daten.",
-        "FORCE_IMPORT": "Remote-Daten trotzdem importieren?",
         "FORCE_UPLOAD": "Lokale Daten trotzdem hochladen?",
         "FORCE_UPLOAD_AFTER_ERROR": "Beim Hochladen Ihrer lokalen Daten ist ein Fehler aufgetreten. Versuchen, das Update zu erzwingen?",
         "MIGRATE_LEGACY": "Beim Importieren wurden veraltete Daten erkannt. Möchten Sie versuchen, sie zu migrieren?",
@@ -874,20 +1008,52 @@
         "TITLE": "Login: {{provider}}"
       },
       "D_CONFLICT": {
+        "COMPARISON_RESULT": "Ergebnis des Vergleichs",
+        "LAMPORT_CLOCK": "Revision",
         "LAST_CHANGE": "Letzte Änderung:",
         "LAST_SYNC": "letzte Synchronisierung:",
+        "LAST_SYNCED": "zuletzt Synchronisiert",
+        "LAST_WRITE": "letztes Schreiben",
         "LOCAL": "Lokal",
         "LOCAL_REMOTE": "lokal -> remote",
+        "NEVER": "Nie",
         "REMOTE": "Remote",
         "TEXT": "<p>Update von Dropbox. Sowohl lokale als auch remote Daten scheinen geändert zu sein.</p>",
+        "TIMESTAMP": "Zeitstempel",
         "TITLE": "Dropbox: Datenkonflikte",
         "USE_LOCAL": "Verwenden Sie die lokale Datei",
-        "USE_REMOTE": "Verwenden Sie die remote Datei"
+        "USE_REMOTE": "Verwenden Sie die remote Datei",
+        "ADDITIONAL_INFO": "Zusätzliche Info",
+        "VECTOR_COMPARISON_CONCURRENT": "Konkurrent (Echter Konflikt)",
+        "VECTOR_COMPARISON_EQUAL": "Gleich",
+        "VECTOR_COMPARISON_LOCAL_GREATER": "Lokal > Remote",
+        "VECTOR_COMPARISON_LOCAL_LESS": "Lokal < Remote",
+        "DATE": "Datum",
+        "TIME": "Zeit",
+        "VECTOR_CLOCK": "Vektor-Uhr",
+        "RESULT": "Ergebnis",
+        "CHANGES": "Änderungen",
+        "CHANGES_SINCE_LAST_SYNC": "Änderungen seit der letzten Synchronisierung",
+        "VECTOR_CLOCK_HEADING": "Vektor-Uhr",
+        "OVERWRITE_WARNING": "WARNUNG: Die {{targetName}} Daten enthalten ungefähr {{targetChanges}} Änderungen, während die {{sourceName}} Daten nur {{sourceChanges}} Änderungen enthalten. Sind Sie sicher, dass Sie die {{ZielName}} Daten mit der {{QuellName}} Version überschreiben wollen? Diese Aktion kann nicht rückgängig gemacht werden."
+      },
+      "D_DECRYPT_ERROR": {
+        "BTN_OVER_WRITE_REMOTE": "Ändern und Remote überschreiben",
+        "CHANGE_PW_AND_DECRYPT": "Ändern & Versuch zu entschlüsseln",
+        "P1": "Ihre Daten sind verschlüsselt und die Entschlüsselung ist fehlgeschlagen. Bitte geben Sie das richtige Passwort ein!",
+        "P2": "Sie können auch Ihr Passwort ändern, was alle Remote-Daten überschreibt.",
+        "PASSWORD": "Passwort"
       },
       "D_INCOMPLETE_SYNC": {
         "BTN_CLOSE_APP": "App schließen",
         "BTN_DOWNLOAD_BACKUP": "Lokale Sicherung herunterladen",
         "BTN_FORCE_UPLOAD": "Hochladen erzwingen Lokal",
+        "P1": "Die Remote-Synchronisierungsdaten sind inkohärent!",
+        "P2": "Betroffenes Modell:",
+        "P3": "Sie haben 2 Optionen:",
+        "P4": "1. Gehen Sie zu Ihrem anderen Gerät und versuchen Sie, dort eine vollständige Synchronisierung durchzuführen.",
+        "P5": "2. Überschreiben Sie die Remote-Daten mit Ihren lokalen Daten. Alle Remote-Änderungen gehen verloren!",
+        "P6": "Es wird empfohlen, ein Backup der Daten zu erstellen, die Sie überschreiben!!!",
         "T1": "Die letzte Synchronisierung war unvollständig!",
         "T2": "Ihre Archivdaten wurden bei der letzten Synchronisierung nicht richtig hochgeladen:",
         "T3": "Sie haben 2 Optionen:",
@@ -926,6 +1092,7 @@
         "TITLE": "Sync",
         "WEB_DAV": {
           "CORS_INFO": "<p><strong>Experimental!!</strong> <strong>Damit dies für Mobil oder den Browser funktioniert, müssen Sie Super Productivity für CORS-Anfragen bei Ihrer Nextcloud-Instanz auf die Whitelist setzen</strong>, dies kann negative Auswirkungen auf die Sicherheit haben! Bitte beziehen Sie sich <a href='https://github.com/nextcloud/server/issues/3131'>auf diesen Thread</a> für weitere Informationen. Ein Ansatz, um dies auch mobil zu ermöglichen, ist das Whitelisting \"https://app.super-productivity.com\" über die Nextcloud-App <a href='https://apps.nextcloud.com/apps/webapppassword'>webapppassword<a>. Benutzung auf eigene Gefahr!",
+          "INFO": "Leider unterscheiden sich WebDAV-Implementierungen stark voneinander. Super Productivity funktioniert bekanntermaßen gut mit Nextcloud, <strong>aber möglicherweise nicht mit Ihrem Anbieter</strong>.",
           "L_BASE_URL": "Basis-URL",
           "L_PASSWORD": "Passwort",
           "L_SYNC_FOLDER_PATH": "Sync-Ordnerpfad",
@@ -935,6 +1102,10 @@
       "S": {
         "ALREADY_IN_SYNC": "Bereits synchronisiert",
         "ALREADY_IN_SYNC_NO_LOCAL_CHANGES": "Keine lokalen Änderungen – bereits synchronisiert",
+        "BTN_CONFIGURE": "Konfigurieren",
+        "BTN_FORCE_OVERWRITE": "Zwangsüberschreibung",
+        "ERROR_CORS": "WebDAV-Synchronisierungsfehler: Netzwerkanforderung fehlgeschlagen.\n\nDies könnte ein CORS-Problem sein. Bitte stellen Sie sicher:\n• Ihr WebDAV-Server erlaubt Cross-Origin-Anfragen\n• Die Server-URL ist korrekt und zugänglich\n• Sie haben eine funktionierende Internetverbindung",
+        "ERROR_DATA_IS_CURRENTLY_WRITTEN": "Remote-Daten werden derzeit geschrieben",
         "ERROR_FALLBACK_TO_BACKUP": "Beim Importieren der Daten ist ein Fehler aufgetreten. Zurückgreifen auf lokales Backup.",
         "ERROR_INVALID_DATA": "Fehler beim Synchronisieren. Ungültige Daten",
         "ERROR_NO_REV": "Keine gültige rev für entfernte Datei",
@@ -942,10 +1113,45 @@
         "IMPORTING": "Daten importieren",
         "INCOMPLETE_CFG": "Die Authentifizierung für die Synchronisierung ist fehlgeschlagen. Bitte überprüfen Sie Ihre Konfiguration!",
         "INITIAL_SYNC_ERROR": "Die anfängliche Synchronisierung ist fehlgeschlagen",
+        "SUCCESS_DOWNLOAD": "Synchronisierte Daten von Remote",
         "SUCCESS_IMPORT": "Daten importiert",
         "SUCCESS_VIA_BUTTON": "Daten erfolgreich synchronisiert",
         "UNKNOWN_ERROR": "Unbekannter Fehler beim Synchronisieren. Bitte überprüfen Sie die Konsole.",
         "UPLOAD_ERROR": "Unbekannter Upload-Fehler (Einstellungen korrekt?): {{err}}"
+      },
+      "SAFETY_BACKUP": {
+        "TITLE": "Sicherheits-Backups bei Synchronisierung",
+        "DESCRIPTION": "Vor dem Herunterladen von Remote gespeicherten Daten, werden bei der Synchronisierung automatisch Backups erstellt. Die Backups sind in 4 intelligente Slots organisiert: 2 aktuellste, 1 erstes von heute und 1 erstes von vorgestern.",
+        "BTN_CREATE_MANUAL": "Erzeuge manuelles Backup",
+        "BTN_REFRESH": "Aktualisieren",
+        "BTN_CLEAR_ALL": "Alle löschen",
+        "BTN_RESTORE": "Wiederherstellen",
+        "BTN_DELETE": "Löschen",
+        "LOADING": "Laden...",
+        "NO_BACKUPS": "Es sind noch keine Sicherheits-Backups verfügbar. Backups werden automatisch vor der Synchronisierung erstellt.",
+        "TOOLTIP_CREATE_MANUAL": "Erstellen Sie ein manuelles Backup all Ihrer Daten",
+        "TOOLTIP_REFRESH": "Aktualisieren der Backup-Liste",
+        "TOOLTIP_CLEAR_ALL": "Alle Backups löschen",
+        "TOOLTIP_RESTORE": "Dieses Backup wiederherstellen (ersetzt alle aktuellen Daten)",
+        "TOOLTIP_DELETE": "Dieses Backup löschen",
+        "SLOT_RECENT": "Aktuelles Backup",
+        "SLOT_TODAY": "Erstes Backup von heute",
+        "SLOT_BEFORE_TODAY": "Erstes Backup vor heute",
+        "REASON_MANUAL": "Manuelles Backup",
+        "REASON_BEFORE_UPDATE": "Automatisches Backup vor der Synchronisierung",
+        "LAST_CHANGE_PREFIX": "Letzte Änderung:",
+        "RESTORE_CONFIRM_TITLE": "Backup wiederherstellen",
+        "RESTORE_CONFIRM_MSG": "Sind Sie sicher, dass Sie das Backup vom {{Zeitstempel}} wiederherstellen möchten?\n\nDamit werden alle Ihre aktuellen Daten VOLLSTÄNDIG ERSETZT!\n\nGrund: {{Grund}}\n\nKlicken Sie auf OK, um fortzufahren oder auf Abbrechen, um abzubrechen.",
+        "BACKUP_NOT_FOUND": "Backup mit ID {{backupId}} nicht gefunden",
+        "RESTORE_FAILED": "Wiederherstellung des Backup fehlgeschlagen: {{error}}",
+        "INVALID_ID_ERROR": "Ungültige Backup-ID erzeugt",
+        "CREATED_SUCCESS": "Manuelles Backup erfolgreich erstellt",
+        "RESTORED_SUCCESS": "Backup erfolgreich wiederhergestellt",
+        "DELETED_SUCCESS": "Backup erfolgreich gelöscht",
+        "CLEARED_SUCCESS": "Alle Backups wurden erfolgreich gelöscht",
+        "CREATE_FAILED": "Backup konnte nicht erstellt werden",
+        "DELETE_FAILED": "Backup konnte nicht gelöscht werden",
+        "CLEAR_FAILED": "Backups konnten nicht gelöscht werden"
       }
     },
     "TAG": {
@@ -986,12 +1192,34 @@
         "EXAMPLE": "Beispiel: \"Aufgabentitel + Projektname #EinSchlüsselwort #EinAnderesSchlüssenwort 10m/3h\"",
         "START": "Drücken Sie die Eingabetaste noch einmal, um zu beginnen",
         "TOGGLE_ADD_TO_BACKLOG_TODAY": "„Aufgabe zum Backlog/zur heutigen Liste hinzufügen“ umschalten.",
-        "TOGGLE_ADD_TOP_OR_BOTTOM": "Umschalten zwischen Hinzufügen von Aufgaben am Anfang und Ende der Liste"
+        "TOGGLE_ADD_TOP_OR_BOTTOM": "Umschalten zwischen Hinzufügen von Aufgaben am Anfang und Ende der Liste",
+        "PLACEHOLDER_SEARCH": "Vorhandene Aufgabe oder Vorgänge hinzufügen...",
+        "PLACEHOLDER_CREATE": "Ein Aufgabentitel #Stichwort @16:00",
+        "TOOLTIP_ADD_TASK": "Aufgabe hinzufügen",
+        "TOOLTIP_ADD_TO_TOP": "am Anfang hinzufügen (Ctrl+1)",
+        "TOOLTIP_ADD_TO_BOTTOM": "am Ende hinzufügen (Ctrl+1)",
+        "TOOLTIP_ADD_TO_TODAY": "Zu Heute hinzufügen",
+        "TOOLTIP_ADD_TO_BACKLOG": "Zum Backlog hinzufügen",
+        "TOOLTIP_ENABLE_SEARCH": "Vorgangssuche aktivieren (Ctrl+2)",
+        "TOOLTIP_DISABLE_SEARCH": "Vorgangssuche deaktivieren (Ctrl+2)",
+        "SEARCH_INFO_TEXT": "Suchen und Hinzufügen von Vorgängen und Aufgaben aus dem Archiv und anderen Projekten",
+        "DUE_BUTTON": "fällig",
+        "TAGS_BUTTON": "Stichworte",
+        "ESTIMATE_BUTTON": "Schätzung",
+        "TOOLTIP_CLEAR_DATE": "Datum löschen",
+        "TOOLTIP_CLEAR_TAGS": "Stichworte löschen",
+        "TOOLTIP_CLEAR_ESTIMATE": "Schätzung löschen",
+        "NO_DATE": "Kein Datum",
+        "NO_TIME": "Keine Zeit",
+        "TODAY": "Heute",
+        "TOMORROW": "Morgen",
+        "CREATE_NEW_TAGS": "Neue Stichworte erstellen"
       },
       "ADDITIONAL_INFO": {
         "ADD_ATTACHMENT": "Anhang hinzufügen",
         "ADD_SUB_TASK": "Unteraufgabe hinzufügen",
         "ATTACHMENTS": "Anhänge {{nr}}",
+        "DUE": "Geplant am",
         "FROM_PARENT": "(von Eltern)",
         "LOCAL_ATTACHMENTS": "Lokale Anhänge",
         "NOTES": "Anmerkungen",
@@ -999,7 +1227,6 @@
         "REMINDER": "Erinnerung",
         "REPEAT": "Wiederholen",
         "SCHEDULE_TASK": "Aufgabe planen",
-        "SCHEDULED_AT": "Geplant am",
         "SUB_TASKS": "Unteraufgaben ({{nr}})",
         "TIME": "Zeit",
         "TITLE_PLACEHOLDER": "Einen Titel eingeben"
@@ -1016,6 +1243,7 @@
         "DELETE": "Aufgabe löschen",
         "DELETE_REPEAT_INSTANCE": "Instanz der wiederkehrenden Aufgabe löschen",
         "DROP_ATTACHMENT": "Hier ablegen und an \"{{title}}\" anhängen",
+        "DUPLICATE": "Duplizieren",
         "EDIT_SCHEDULED": "Erinnerung bearbeiten",
         "EDIT_TAGS": "Stichworte bearbeiten",
         "EDIT_TASK_TITLE": "Titel bearbeiten",
@@ -1024,7 +1252,8 @@
         "MARK_UNDONE": "Als offen markieren",
         "MOVE_TO_BACKLOG": "In das Backlog verschieben",
         "MOVE_TO_OTHER_PROJECT": "In ein anderes Projekt verschieben",
-        "MOVE_TO_TODAY": "Zur heutigen Liste wechseln",
+        "MOVE_TO_REGULAR": "Zur heutigen Liste wechseln",
+        "MOVE_TO_TOP": "Nach oben in der Liste verschieben",
         "OPEN_ATTACH": "Datei oder Link anhängen",
         "OPEN_ISSUE": "Öffnen Sie das Issue in einem neuen Browser-Tab",
         "OPEN_TIME": "Zeit schätzen / Zeit hinzufügen",
@@ -1039,6 +1268,7 @@
         "TOGGLE_TAGS": "Tags umschalten",
         "TRACK_TIME": "Starten Sie die Erfassung der Zeit",
         "TRACK_TIME_STOP": "Erfassung der Zeit anhalten",
+        "UNSCHEDULE_TASK": "Aufgabe ablegen",
         "UPDATE_ISSUE_DATA": "Issuedaten aktualisieren"
       },
       "D_CONFIRM_SHORT_SYNTAX_NEW_TAG": {
@@ -1052,8 +1282,6 @@
       "D_REMINDER_VIEW": {
         "ADD_ALL_TO_TODAY": "Fügen Sie alles zu heute hinzu",
         "ADD_TO_TODAY": "Zu heute hinzufügen",
-        "DISMISS": "Erinnerung verwerfen",
-        "DISMISS_ALL": "Alle schließen",
         "DONE": "Erledigt",
         "DUE_TASK": "Fällige Aufgabe",
         "DUE_TASKS": "Fällige Aufgaben",
@@ -1066,7 +1294,11 @@
         "SNOOZE": "Schlummern",
         "SNOOZE_ALL": "Alle schlummern lassen",
         "START": "Start",
-        "SWITCH_CONTEXT_START": "Kontext wechseln & starten"
+        "SWITCH_CONTEXT_START": "Kontext wechseln & starten",
+        "UNSCHEDULE": "Ablegen",
+        "UNSCHEDULE_ALL": "Alle ablegen",
+        "DISMISS_REMINDER_KEEP_TODAY": "Erinnerung verwerfen (Behalten in Heute)",
+        "DISMISS_ALL_REMINDERS_KEEP_TODAY": "Alle Erinnerungen verwerfen (Behalten in Heute)"
       },
       "D_SCHEDULE_TASK": {
         "MOVE_TO_BACKLOG": "Verschieben Sie die Aufgabe in das Backlog, bis sie geplant ist",
@@ -1114,6 +1346,7 @@
         "FOUND_MOVE_FROM_OTHER_LIST": "Aufgabe <strong>{{title}}</strong> von <strong>{{contextTitle}}</strong> zur aktuellen Liste hinzugefügt",
         "FOUND_RESTORE_FROM_ARCHIVE": "Zum Issue zugehörige Aufgabe <strong>{{title}}</strong> wurde aus dem Archiv wiederhergestellt",
         "LAST_TAG_DELETION_WARNING": "Sie versuchen, das letzte Stichwort einer Nicht-Projektaufgabe zu entfernen. Das ist nicht erlaubt!",
+        "MOVED_TO_ARCHIVE": "{{nr}} Aufgaben in das Archiv verschoben",
         "MOVED_TO_PROJECT": "Aufgabe \"{{taskTitle}}\" in Projekt \"{{projectTitle}}\" verschoben",
         "MOVED_TO_PROJECT_ACTION": "Gehe zu Projekt",
         "REMINDER_ADDED": "Geplante Aufgabe \"{{title}}\"",
@@ -1161,6 +1394,10 @@
         "MSG": "Durch das Entfernen der Wiederholungskonfiguration werden alle vorherigen Instanzen dieser Aufgabe in normale Aufgaben konvertiert. Sind Sie sicher, dass Sie fortfahren möchten",
         "OK": "Vollständig entfernen"
       },
+      "D_DELETE_INSTANCE": {
+        "MSG": "Die Instanz der wiederkehrenden Aufgabe am {{Datum}} entfernen? Dadurch wird verhindert, dass die Aufgabe nur an diesem Datum erstellt wird.",
+        "OK": "Instanz entfernen"
+      },
       "D_CONFIRM_UPDATE_INSTANCES": {
         "CANCEL": "Nur zukünftige Aufgaben",
         "MSG": "Es gibt {{tasksNr}} Instanzen, die für diese wiederkehrende Aufgabe erstellt wurden. Möchten Sie alle mit den neuen Vorgaben aktualisieren oder nur zukünftige Aufgaben?",
@@ -1207,7 +1444,52 @@
         "THURSDAY": "Donnerstag",
         "TITLE": "Titel für die Aufgabe",
         "TUESDAY": "Dienstag",
-        "WEDNESDAY": "Mittwoch"
+        "WEDNESDAY": "Mittwoch",
+        "INHERIT_SUBTASKS": "Unteraufgaben vererben",
+        "INHERIT_SUBTASKS_DESCRIPTION": "Wenn diese Option aktiviert ist, werden die Unteraufgaben der letzten Aufgabeninstanz mit der wiederkehrenden Aufgabe neu erstellt.",
+        "REMOVE_INSTANCE": "Heute entfernen",
+        "REMOVE_FOR_DATE": "Entfernen für {{date}}",
+        "DISABLE_AUTO_UPDATE_SUBTASKS": "Autom. Aktualisierung von Unteraufgaben deaktivieren",
+        "DISABLE_AUTO_UPDATE_SUBTASKS_DESCRIPTION": "Vererbte Unteraufgaben nicht automatisch aktualisieren (Stand beibehalten), wenn sich die neueste Instanz ändert"
+      }
+    },
+    "TASK_VIEW": {
+      "CUSTOMIZER": {
+        "ENTER_PROJECT": "Projekt eingeben",
+        "ENTER_TAG": "Tag eingeben",
+        "ESTIMATED_TIME": "Geschätzte Zeit",
+        "FILTER_BY": "Nach filtern",
+        "FILTER_DEFAULT": "Kein Filter",
+        "FILTER_ESTIMATED_TIME": "Geschätzte Zeit",
+        "FILTER_PROJECT": "Projekt",
+        "FILTER_SCHEDULED_DATE": "Geplantes Datum",
+        "FILTER_TAG": "Tag",
+        "FILTER_TIME_SPENT": "Aufgewendete Zeit",
+        "GROUP_BY": "Gruppieren nach",
+        "GROUP_DEFAULT": "Keine Gruppe",
+        "GROUP_PROJECT": "Projekt",
+        "GROUP_SCHEDULED_DATE": "Geplantes Datum",
+        "GROUP_TAG": "Tag",
+        "RESET_ALL": "Alle zurücksetzen",
+        "SCHEDULED_DEFAULT": "Jedes Datum",
+        "SCHEDULED_NEXT_MONTH": "Nächsten Monat",
+        "SCHEDULED_NEXT_WEEK": "Nächste Woche",
+        "SCHEDULED_THIS_MONTH": "Diesen Monat",
+        "SCHEDULED_THIS_WEEK": "Diese Woche",
+        "SCHEDULED_TODAY": "Heute",
+        "SCHEDULED_TOMORROW": "Morgen",
+        "SORT_BY": "Sortiere nach",
+        "SORT_CREATION_DATE": "Erstellungsdatum",
+        "SORT_DEFAULT": "Standard",
+        "SORT_NAME": "Name",
+        "SORT_SCHEDULED_DATE": "Geplantes Datum",
+        "TIME_1HOUR": "> 1 Stunde",
+        "TIME_2HOUR": "> 2 Stunden",
+        "TIME_10MIN": "> 10 Minuten",
+        "TIME_30MIN": "> 30 Minuten",
+        "TIME_DEFAULT": "Jede Dauer",
+        "TIME_SPENT": "Aufgewendete Zeit",
+        "TITLE": "Aufgabenansicht anpassen"
       }
     },
     "TIME_TRACKING": {
@@ -1217,7 +1499,8 @@
       },
       "B_TTR": {
         "ADD_TO_TASK": "Zur Aufgabe hinzufügen",
-        "MSG": "Sie haben die Zeit für {{time}} nicht erfasst"
+        "MSG": "Sie haben die Zeit für {{time}} nicht erfasst",
+        "MSG_WITHOUT_TIME": "Sie haben die Zeit nicht erfasst"
       },
       "D_IDLE": {
         "ADD_ENTRY": "Eintrag für Erfassung hinzufügen",
@@ -1302,19 +1585,39 @@
     }
   },
   "FILE_IMEX": {
+    "DIALOG_CONFIRM_URL_IMPORT": {
+      "INITIATED_MSG": "Ein automatischer Datenimport wurde gestartet.",
+      "SOURCE_URL_DOMAIN": "Quell-Domain",
+      "TITLE": "Datenimport von URL bestätigen",
+      "WARNING_MSG": "Das Fortfahren überschreibt Ihre aktuellen Anwendungsdaten und -konfiguration mit dem Inhalt der angegebenen URL. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "WARNING_TITLE": "Warnung"
+    },
     "EXPORT_DATA": "Daten exportieren",
     "IMPORT_FROM_FILE": "Aus Datei importieren",
+    "IMPORT_FROM_URL": "Aus URL importieren",
+    "IMPORT_FROM_URL_DIALOG_DESCRIPTION": "Bitte geben Sie die vollständige URL der Super Productivity-Backup-JSON-Datei ein, die Sie importieren möchten.",
+    "IMPORT_FROM_URL_DIALOG_TITLE": "Aus URL importieren",
+    "OPEN_IMPORT_FROM_URL_DIALOG": "Aus URL importieren",
     "PRIVACY_EXPORT": "Exportiere anonymisierte Daten (zum Senden an contact@super-productivity.com zur Fehlersuche)",
-    "S_ERR_INVALID_DATA": "Import fehlgeschlagen: Ungültiger JSON"
+    "S_BACKUP_DOWNLOADED": "Backup in den Android-Dokumentenordner heruntergeladen",
+    "S_ERR_IMPORT_FAILED": "Datenimport fehlgeschlagen",
+    "S_ERR_INVALID_DATA": "Import fehlgeschlagen: Ungültiger JSON",
+    "S_ERR_INVALID_URL": "Import fehlgeschlagen: Ungültige URL angegeben",
+    "S_ERR_NETWORK": "Import fehlgeschlagen: Netzwerkfehler beim Abrufen von Daten von der URL",
+    "S_IMPORT_FROM_URL_ERR_DECODE": "Fehler: Die URL-Parameter für den Import konnten nicht dekodiert werden. Bitte stellen Sie sicher, dass sie korrekt formatiert sind.",
+    "URL_PLACEHOLDER": "URL zum Importieren eingeben"
   },
   "G": {
     "ADD": "Hinzufügen",
     "ADVANCED_CFG": "Erweiterte Konfiguration",
     "CANCEL": "Abbrechen",
     "CLOSE": "Schließen",
+    "COMPLETE": "Vollständig",
+    "CONFIRM": "Bestätigen",
     "DELETE": "Löschen",
     "DISMISS": "Verwerfen",
     "DO_IT": "Tu es!",
+    "DONT_SHOW_AGAIN": "Nicht mehr anzeigen",
     "DURATION_DESCRIPTION": "z. B. \"5h 23m\" was in 5 Stunden und 23 Minuten resultiert",
     "EDIT": "Bearbeiten",
     "ENABLED": "Aktiviert",
@@ -1322,6 +1625,7 @@
     "EXTENSION_INFO": "Bitte <a target=\"_blank\" href=\"https://chrome.google.com/webstore/detail/super-productivity/ljkbjodfmekklcoibdnhahlaalhihmlb\"> laden Sie die Chrome-Erweiterung</a> herunter, um die Kommunikation mit dem Jira Api und Leerlaufzeitbehandlung zu ermöglichen. Beachten Sie, dass dies für Handys nicht funktioniert.",
     "HIDE": "Verstecken",
     "ICON_INP_DESCRIPTION": "Alle utf-8-Emojis werden ebenfalls unterstützt!",
+    "INBOX_PROJECT_TITLE": "Eingang",
     "LOGIN": "Anmeldung",
     "LOGOUT": "Ausloggen",
     "MINUTES": "{{m}} Minuten",
@@ -1331,6 +1635,7 @@
     "NO_CON": "Sie sind derzeit offline. Bitte stellen Sie die Verbindung zum Internet wieder her.",
     "NONE": "Keiner",
     "OK": "OK",
+    "OVERDUE": "Überfällig",
     "PREVIOUS": "Bisherige",
     "REMOVE": "Löschen",
     "RESET": "Zurücksetzen",
@@ -1403,7 +1708,7 @@
       "MOVE_TASK_TO_TOP": "Verschieben Sie die Aufgabe an den Anfang der Liste",
       "MOVE_TASK_UP": "Aufgabe in Liste nach oben verschieben",
       "MOVE_TO_BACKLOG": "Task in Task-Backlog verschieben",
-      "MOVE_TO_TODAYS_TASKS": "Aufgabe in die Aufgabenliste von heute verschieben",
+      "MOVE_TO_REGULARS_TASKS": "Aufgabe in die Aufgabenliste von heute verschieben",
       "OPEN_PROJECT_NOTES": "Projektnotizen ein- oder ausblenden",
       "SAVE_NOTE": "Notiz speichern",
       "SELECT_NEXT_TASK": "Nächste Aufgabe auswählen",
@@ -1430,10 +1735,12 @@
       "TOGGLE_ISSUE_PANEL": "Ausgabebereich ein-/ausblenden",
       "TOGGLE_PLAY": "Task starten oder stoppen",
       "TOGGLE_SIDE_NAV": "Seitennavigation anzeigen oder verstecken",
+      "TOGGLE_TASK_VIEW_CUSTOMIZER_PANEL": "Filter-/Gruppierungs-/Sortierpanel umschalten",
       "TRIGGER_SYNC": "Trigger-Synchronisation (falls konfiguriert)",
       "ZOOM_DEFAULT": "Zoom Standard (nur Desktop)",
       "ZOOM_IN": "Vergrößern (nur Desktop)",
-      "ZOOM_OUT": "Verkleinern (nur Desktop)"
+      "ZOOM_OUT": "Verkleinern (nur Desktop)",
+      "PLUGIN_SHORTCUTS": "Plugin Tastenkürzel"
     },
     "LANG": {
       "AR": "عربى",
@@ -1459,7 +1766,22 @@
       "TR": "Türkçe",
       "UK": "Українська",
       "ZH": "中文(简体)",
-      "ZH_TW": "中文(繁體)"
+      "ZH_TW": "中文(繁體)",
+      "TIME_LOCALE": "Zeitformat Gebietsschema",
+      "TIME_LOCALE_DESCRIPTION": "Wählen Sie ein Gebietsschema für die Zeitformatierung. Verschiedene Gebietsschemata verwenden unterschiedliche Konventionen (12h vs. 24h Format)",
+      "TIME_LOCALE_AUTO": "Systemvorgabe",
+      "TIME_LOCALE_EN_US": "Englisch (US) - 12 Stunden AM/PM",
+      "TIME_LOCALE_EN_GB": "Englisch (UK) - 24 Stunden",
+      "TIME_LOCALE_TR_TR": "Türkisch - 24 Stunden",
+      "TIME_LOCALE_DE_DE": "Deutsch - 24 Stunden",
+      "TIME_LOCALE_FR_FR": "Französisch - 24 Stunden",
+      "TIME_LOCALE_ES_ES": "Spanisch - 24 Stunden",
+      "TIME_LOCALE_IT_IT": "Italienisch - 24 Stunden",
+      "TIME_LOCALE_PT_BR": "Portugiesisch (Brasilien) - 24 Stunden",
+      "TIME_LOCALE_RU_RU": "Russisch - 24 Stunden",
+      "TIME_LOCALE_ZH_CN": "Chinesisch (vereinfacht) - 24 Stunden",
+      "TIME_LOCALE_JA_JP": "Japanisch - 24 Stunden",
+      "TIME_LOCALE_KO_KR": "Koreanisch - 12 Stunden AM/PM"
     },
     "MISC": {
       "DEFAULT_PROJECT": "Standardprojekt für Aufgaben, wenn keines angegeben ist",
@@ -1473,13 +1795,24 @@
       "IS_DISABLE_ANIMATIONS": "Deaktiviere alle Animationen",
       "IS_HIDE_NAV": "Navigation verbergen, bis die Hauptüberschrift angezeigt wird (nur Desktop)",
       "IS_MINIMIZE_TO_TRAY": "Anwendung als Trayicon minimieren (nur Deskop)",
+      "IS_SHOW_TIP_LONGER": "Zeige den Produktivitätstipp beim Start der App etwas länger an",
+      "IS_DISABLE_PRODUCTIVITY_TIPS": "Produktivitätstipps beim Start der Anwendung deaktivieren",
+      "IS_TRAY_SHOW_CURRENT_COUNTDOWN": "Aktuellen Countdown im Tray / Statusmenü anzeigen (nur Desktop Mac)",
       "IS_TRAY_SHOW_CURRENT_TASK": "Aktuelle Aufgabe im Tray / Status-Menu zeigen (nur Desktop)",
+      "IS_OVERLAY_INDICATOR_ENABLED": "Enable overlay indicator window (desktop linux/gnome)",
       "IS_TURN_OFF_MARKDOWN": "Deaktivieren Sie das Markdown-Parsing für Notizen",
-      "IS_USE_MINIMAL_SIDE_NAV": "Minimale Navigationsleiste verwenden (nur Icons anzeigen)",
       "START_OF_NEXT_DAY": "Startzeit des nächsten Tages",
       "START_OF_NEXT_DAY_HINT": "Ab wann (in Stunden) der nächste Tag beginnen. Der Standardwert ist Mitternacht, also 0.",
       "TASK_NOTES_TPL": "Aufgabenbeschreibungsvorlage",
-      "TITLE": "Verschiedene Einstellungen"
+      "TITLE": "Verschiedene Einstellungen",
+      "DARK_MODE": "Dark Mode",
+      "DARK_MODE_SYSTEM": "System",
+      "DARK_MODE_DARK": "Dunkel",
+      "DARK_MODE_LIGHT": "Hell",
+      "DARK_MODE_ARIA_LABEL": "Auswahl des Dunkelmodus",
+      "THEME": "Thema",
+      "THEME_EXPERIMENTAL": "Thema (experimentell)",
+      "THEME_SELECT_LABEL": "Thema auswählen"
     },
     "POMODORO": {
       "BREAK_DURATION": "Dauer der kurzen Pausen",
@@ -1491,6 +1824,7 @@
       "IS_MANUAL_CONTINUE_BREAK": "Beginn der nächsten Pause manuell bestätigen",
       "IS_PLAY_SOUND": "Ton abspielen, wenn die Sitzung beendet ist",
       "IS_PLAY_SOUND_AFTER_BREAK": "Ton abspielen, wenn die Pause beendet ist",
+      "IS_DISABLE_AUTO_START_AFTER_BREAK": "Automatischer Start der Sitzung nach einer Pause deaktivieren",
       "IS_PLAY_TICK": "Spielen Sie jede Sekunde einen Tick-Sound ab",
       "IS_STOP_TRACKING_ON_BREAK": "Stoppen Sie die Zeiterfassung für die Aufgabe in der Pause",
       "LONGER_BREAK_DURATION": "Dauer längerer Pausen",
@@ -1511,7 +1845,9 @@
       "L_WORK_START": "Beginn des Arbeitstages",
       "LUNCH_BREAK_START_END_DESCRIPTION": "z.B. 13:00",
       "TITLE": "Zeitleiste",
-      "WORK_START_END_DESCRIPTION": "z. B. 17:00"
+      "WORK_START_END_DESCRIPTION": "z. B. 17:00",
+      "WEEK": "Woche",
+      "MONTH": "Monat"
     },
     "SHORT_SYNTAX": {
       "HELP": "<p>Hier können Sie kurze Syntaxoptionen beim Erstellen einer Aufgabe festlegen</p>",
@@ -1558,6 +1894,34 @@
       "TITLE": "Zeiterfassung"
     }
   },
+  "GLOBAL_RELATIVE_TIME": {
+    "FUTURE": {
+      "A_DAY": "in einem Tag",
+      "A_MINUTE": "in einer Minute",
+      "A_MONTH": "in einem Monat",
+      "A_YEAR": "in einem Jahr",
+      "AN_HOUR": "in einer Stunde",
+      "DAYS": "in {{count}} Tagen",
+      "FEW_SECONDS": "in wenigen Sekunden",
+      "HOURS": "in {{count}} Stunden",
+      "MINUTES": "in {{count}} Minuten",
+      "MONTHS": "in {{count}} Monaten",
+      "YEARS": "in {{count}} Jahren"
+    },
+    "PAST": {
+      "A_DAY": "Vor einem Tag",
+      "A_MINUTE": "Vor einer Minute",
+      "A_MONTH": "Vor einem Monat",
+      "A_YEAR": "Vor einem Jahr",
+      "AN_HOUR": "Vor einer Stunde",
+      "DAYS": "vor {{count}} Tagen",
+      "FEW_SECONDS": "Vor wenigen Sekunden",
+      "HOURS": "vor {{count}} Stunden",
+      "MINUTES": "vor {{count}} Minuten",
+      "MONTHS": "vor {{count}} Monaten",
+      "YEARS": "vor {{count}} Jahren"
+    }
+  },
   "GLOBAL_SNACK": {
     "COPY_TO_CLIPPBOARD": "In die Zwischenablage kopiert",
     "ERR_COMPRESSION": "Fehler bei der Komprimierung",
@@ -1584,11 +1948,13 @@
   },
   "MH": {
     "ADD_NEW_TASK": "Neue Aufgabe hinzufügen",
+    "ALL_PLANNED_LIST": "Wiederkehrend",
     "BOARDS": "Boards",
     "CREATE_PROJECT": "Projekt erstellen",
     "CREATE_TAG": "Stichwort erstellen",
     "DELETE_PROJECT": "Projekt löschen",
     "DELETE_TAG": "Stichwort löschen",
+    "ENTER_FOCUS_MODE": "Fokusmodus aktivieren",
     "GO_TO_TASK_LIST": "Gehe zur Aufgabenliste",
     "HELP": "Hilfe",
     "HM": {
@@ -1602,6 +1968,7 @@
       "SYNC": "Howto: Synchronisierung konfigurieren"
     },
     "METRICS": "Metriken",
+    "NO_PROJECT_INFO": "Keine Projekte verfügbar. Sie können ein neues Projekt erstellen, indem Sie auf die Schaltfläche \"Projekt erstellen\" klicken.",
     "NO_TAG_INFO": "Derzeit sind keine Tags vorhanden. Sie können Tags hinzufügen, indem Sie beim Hinzufügen oder Bearbeiten von Aufgaben „#IhrNeuesTag“ eingeben.",
     "NOTES": "Anmerkungen",
     "NOTES_PANEL_INFO": "Notizen können nur von der Schedule und der normalen Aufgabenliste angezeigt werden.",
@@ -1611,8 +1978,8 @@
     "PROJECT_SETTINGS": "Projekt Einstellungen",
     "PROJECTS": "Projekte",
     "QUICK_HISTORY": "Schnellverlauf",
-    "REPEAT_SCHEDULED": "Wiederkehrend",
     "SCHEDULE": "Stundenplan",
+    "SEARCH": "Suche",
     "SETTINGS": "Einstellungen",
     "SHOW_SEARCH_BAR": "Suchleiste anzeigen",
     "TAGS": "Stichworte",
@@ -1623,9 +1990,18 @@
     "TOGGLE_SHOW_NOTES": "Projektnotizen ein- / ausblenden",
     "TOGGLE_TRACK_TIME": "Tracking-Zeit starten / stoppen",
     "TRIGGER_SYNC": "Synchronisierung manuell auslösen",
-    "WORKLOG": "Worklog"
+    "WORKLOG": "Worklog",
+    "SIDE_PANEL_MENU": "Seitenleiste Menü"
+  },
+  "MIGRATE": {
+    "C_DOWNLOAD_BACKUP": "Möchten Sie ein Backup Ihrer alten Daten herunterladen (kann mit älteren Versionen von Super Productivity verwendet werden)?",
+    "DETECTED_LEGACY": "Alte Daten erkannt. Wir werden sie für Sie migrieren!",
+    "E_MIGRATION_FAILED": "Migration fehlgeschlagen! mit Fehler:",
+    "E_RESTART_FAILED": "Automatischer Neustart fehlgeschlagen. Bitte starten Sie die App manuell neu!",
+    "SUCCESS": "Migration abgeschlossen! Starte die App jetzt neu..."
   },
   "PDS": {
+    "ADD_TASKS_FROM_TODAY": "Aufgaben von heute hinzufügen",
     "BACK": "Ich habe etwas vergessen!",
     "BREAK_LABEL": "Pausen (Anzahl / Zeit)",
     "CELEBRATE": "Nehmen Sie sich einen Moment Zeit, um <i>zu feiern!</i>",
@@ -1666,21 +2042,126 @@
   "PS": {
     "GLOBAL_SETTINGS": "Globale Einstellungen",
     "ISSUE_INTEGRATION": "Problemintegration",
+    "NO_PLUGINS_INSTALLED": "Derzeit sind keine Plugins installiert",
+    "PLUGINS": "Plugins",
     "PRIVACY_POLICY": "Datenschutzerklärung",
     "PRODUCTIVITY_HELPER": "Produktivitäts-Helfer",
     "PROJECT_SETTINGS": "Projektspezifische Einstellungen",
     "PROVIDE_FEEDBACK": "Rückmeldung geben",
+    "RELOAD": "Neu laden",
     "SYNC_EXPORT": "Synchronisieren und exportieren",
     "TAG_SETTINGS": "Stichwort-spezifische Einstellungen",
     "TOGGLE_DARK_MODE": "Schaltet den Dunklen Modus um"
   },
+  "PLUGINS": {
+    "INSTALL_PLUGIN": "Plugin installieren",
+    "UPLOAD_PLUGIN_INSTRUCTION": "Laden Sie eine Plugin-ZIP-Datei hoch, um sie zu installieren:",
+    "CHOOSE_PLUGIN_FILE": "Plugin-Datei auswählen",
+    "INSTALLING": "Installieren...",
+    "CLEAR_PLUGIN_CACHE": "Plugin-Cache löschen",
+    "REMOVE": "entfernen",
+    "HOOKS": "Hooks/Auslöser",
+    "PERMISSIONS": "Berechtigungen",
+    "ID": "ID:",
+    "MIN_VERSION": "Min. Version:",
+    "NODE_EXECUTION_REQUIRED": "Dieses Plugin erfordert die Ausführung von Node.js, das nur in der Desktop-App verfügbar ist.",
+    "TOGGLE_PLUGIN": "Umschalten auf {{pluginName}}",
+    "EXPERIMENTAL_WARNING_TITLE": "Experimentelle Funktion - Sicherheitswarnung",
+    "EXPERIMENTAL_WARNING": "Das Plugin-System befindet sich in einem experimentellen Stadium und sollte mit äußerster Vorsicht verwendet werden.",
+    "SECURITY_WARNING": "Plugins haben erheblichen Zugriff auf Ihre Daten und Ihr System. Die Installation von nicht vertrauenswürdigen Plugins birgt ernsthafte Sicherheitsrisiken:",
+    "RISK_DATA_ACCESS": "Plugins können ALLE Ihre Aufgaben, Projekte und persönlichen Daten lesen, ändern und löschen",
+    "RISK_MALICIOUS_CODE": "Bösartige Plugins könnten vertrauliche Informationen stehlen oder Ihre Daten beschädigen",
+    "RISK_SYSTEM_ACCESS": "Desktop-Plugins mit Node.js-Berechtigungen können Systembefehle ausführen",
+    "RISK_PERFORMANCE": "Schlecht geschriebene Plugins können Leistungsprobleme oder Abstürze verursachen",
+    "RECOMMENDATION": "Installieren Sie nur Plugins aus vertrauenswürdigen Quellen und überprüfen Sie deren Code, wenn möglich. Sichern Sie immer Ihre Daten, bevor Sie neue Plugins installieren.",
+    "CONFIGURATION": "Konfiguration",
+    "CONFIGURE": "Konfigurieren",
+    "INSTALL_WARNING": "Bevor Sie ein Plugin installieren, vergewissern Sie sich, dass Sie der Quelle vertrauen und die erforderlichen Berechtigungen kennen.",
+    "SYSTEM_ACCESS_REQUEST_TITLE": "Antrag auf Systemzugang",
+    "SYSTEM_ACCESS_REQUEST_DESC": "Dieses Plugin bittet um die Erlaubnis, Node.js-Code auf Ihrem System auszuführen. Dies wird es erlauben:",
+    "GRANT_PERMISSION": "Berechtigung erteilen",
+    "CANCEL": "Abbrechen",
+    "REMEMBER_CHOICE": "meine Wahl für dieses Plugin merken",
+    "TRUST_WARNING": "Erlauben Sie nur, wenn Sie diesem Plugin vertrauen",
+    "CAPABILITIES": {
+      "ACCESS_FILES": "Zugriff und Änderung von Dateien auf Ihrem System",
+      "RUN_COMMANDS": "Ausführen von Systembefehlen",
+      "USE_NODE_APIS": "Node.js-APIs und -Module verwenden"
+    },
+    "ERROR": "Error",
+    "LOADING_PLUGIN": "Laden...",
+    "ENABLED": "Aktiviert",
+    "DISABLED": "Deaktiviert",
+    "PLEASE_SELECT_ZIP_FILE": "Bitte wählen Sie eine ZIP-Datei",
+    "FILE_TOO_LARGE": "Datei zu groß ({{fileSize}}MB). Maximale Größe ist {{maxSize}}MB",
+    "FAILED_TO_INSTALL": "Plugin konnte nicht installiert werden",
+    "FAILED_TO_CLEAR_CACHE": "Plugin-Cache konnte nicht gelöscht werden",
+    "CONFIRM_REMOVE": "Sind Sie sicher, dass Sie das Plugin entfernen möchten \"{{name}}\"?",
+    "FAILED_TO_REMOVE": "Plugin konnte nicht entfernt werden",
+    "TYPE": "Typ: {{type}}",
+    "NO_ADDITIONAL_INFO": "Keine weiteren Informationen verfügbar",
+    "NO_PLUGIN_ID_PROVIDED_FOR_HTML": "Keine Plugin-ID für HTML-Inhalte vorhanden",
+    "PROJECT_NOT_FOUND": "Projekt '{{contextId}}' nicht gefunden",
+    "TASKS_NOT_IN_PROJECT": "Eine oder mehrere Aufgaben sind nicht im Projekt '{{contextId}}'",
+    "PARENT_TASK_NOT_FOUND": "Übergeordnete Aufgabe nicht im Kontext gefunden '{{contextId}}'",
+    "TASK_NOT_FOUND": "Aufgabe mit ID '{{taskId}}' nicht gefunden",
+    "TASKS_NOT_SUBTASKS": "Eine oder mehrere Aufgaben sind keine Unteraufgaben von '{{contextId}}'",
+    "NO_PLUGIN_CONTEXT_PERSISTENCE": "Das Plugin hat keine Berechtigung, Daten dauerhaft zu speichern.",
+    "UNABLE_TO_PERSIST_DATA": "Daten können nicht in den Plugin-Speicher übernommen werden",
+    "NO_PLUGIN_CONTEXT_LOADING": "Plugin hat keinen Kontext für das Laden von Daten",
+    "NO_PLUGIN_CONTEXT_SYNC": "Plugin hat keine Berechtigung zur Verwendung der Synchronisierung",
+    "NO_PLUGIN_CONTEXT_HEADER_BUTTON": "Das Plugin hat keine Berechtigung, Header-Schaltflächen hinzuzufügen.",
+    "NO_PLUGIN_CONTEXT_MENU_ENTRY": "Plugin hat nicht die Berechtigung, Menüeinträge hinzuzufügen",
+    "MENU_ENTRY_LABEL_REQUIRED": "Menüeintragsbezeichnung ist erforderlich",
+    "MENU_ENTRY_ONCLICK_REQUIRED": "Menüeintrag onClick-Handler erforderlich",
+    "MENU_ENTRY_ICON_STRING": "Das Symbol für den Menüeintrag muss ein String sein",
+    "NO_PLUGIN_CONTEXT_SIDE_PANEL": "Plugin hat keine Berechtigung zum Hinzufügen von Schaltflächen im Seitenbereich",
+    "SIDE_PANEL_LABEL_REQUIRED": "Beschriftung der Schaltfläche im Seitenbereich ist erforderlich",
+    "SIDE_PANEL_ONCLICK_REQUIRED": "Seitenpanel-Schaltfläche onClick-Handler ist erforderlich",
+    "NO_PLUGIN_CONTEXT_SHORTCUT": "Plugin hat nicht die Berechtigung, Tastaturkürzel zu registrieren",
+    "PROJECT_DOES_NOT_EXIST": "Das Projekt existiert nicht",
+    "TAGS_DO_NOT_EXIST": "Ein oder mehrere Stichworte existieren nicht.",
+    "PARENT_TASK_DOES_NOT_EXIST": "Die übergeordnete Aufgabe existiert nicht",
+    "VALIDATION_FAILED": "Validierung fehlgeschlagen",
+    "NO_PLUGIN_CONTEXT_ACTION": "Plugin hat keine Berechtigung zum Ausführen von Aktionen",
+    "ACTION_TYPE_NOT_ALLOWED": "Aktionstyp '{{Typ}}' ist nicht erlaubt",
+    "NODE_ONLY_DESKTOP": "Node.js-Ausführung ist nur in der Desktop-Anwendung verfügbar",
+    "NO_PLUGIN_CONTEXT_NODE": "Plugin hat keine Berechtigung zur Ausführung von Node.js-Code",
+    "NO_PLUGIN_MANIFEST_NODE": "Das Plugin-Manifest enthält kein Node.js-Modul",
+    "ELECTRON_API_NOT_AVAILABLE": "Electron API ist nicht verfügbar",
+    "FAILED_TO_EXECUTE_SCRIPT": "Node.js-Skript kann nicht ausgeführt werden",
+    "ALREADY_INITIALIZED": "Plugin ist bereits initialisiert",
+    "USER_DECLINED_NODE_PERMISSION": "Benutzer hat Node.js-Ausführungserlaubnis abgelehnt",
+    "FAILED_TO_EXTRACT_ZIP": "Plugin-ZIP-Datei konnte nicht entpackt werden",
+    "MANIFEST_NOT_FOUND": "Plugin-Manifest (manifest.json) nicht in ZIP-Datei gefunden",
+    "MANIFEST_TOO_LARGE": "Plugin-Manifest ist zu groß (max {{maxSize}}KB)",
+    "PLUGIN_JS_NOT_FOUND": "Plugin-JavaScript-Datei (plugin.js) nicht in ZIP-Datei gefunden",
+    "CODE_TOO_LARGE": "Plugin-Code ist zu groß (max {{maxSize}}MB)",
+    "UNKNOWN_ERROR": "Ein unbekannter Fehler ist aufgetreten",
+    "PLUGIN_DIALOG_TITLE": "Plugin-Meldung",
+    "NO_CONTENT_PROVIDED": "Kein Inhalt vorhanden",
+    "OK": "OK",
+    "LOADING_INTERFACE": "Lade Plugin-Schnittstelle...",
+    "ERROR_LOADING_PLUGIN": "Fehler beim Laden des Plugins",
+    "GO_BACK": "Zurückgehen",
+    "FAILED_TO_LOAD": "Plugin konnte nicht geladen werden",
+    "FAILED_TO_LOAD_CONFIG": "Plugin-Konfiguration konnte nicht geladen werden",
+    "FAILED_TO_SAVE_CONFIG": "Plugin-Konfiguration konnte nicht gespeichert werden",
+    "PLUGIN_ID_NOT_PROVIDED": "Plugin-ID nicht angegeben",
+    "PLUGIN_SYSTEM_FAILED_INIT": "Plugin-System konnte nicht initialisiert werden",
+    "PLUGIN_NOT_FOUND": "Plugin nicht gefunden",
+    "PLUGIN_DOES_NOT_SUPPORT_IFRAME": "Dieses Plugin unterstützt keine Iframe-Schnittstelle",
+    "INDEX_HTML_NOT_LOADED": "Plugin index.html nicht geladen"
+  },
   "SCHEDULE": {
+    "LAST": "Zuletzt:",
+    "NEXT": "Weiter",
     "NO_REPEATABLE_TASKS": "Es gibt aktuell keine wiederkehrenden Aufgaben. Sie können eine Aufgabe planen indem Sie auf \"Aufgabe wiederholen\" im Aufgaben Seitenpanel klicken. Um sie zu öffnen klicken Sie auf das Symbol ganz rechts das erscheint, wenn man über eine Aufgabe fährt (oder tippen Sie auf die Aufgabe auf Mobilgeräten).",
     "NO_SCHEDULED": "Derzeit sind keine Aufgaben geplant. Sie können eine Aufgabe planen, indem Sie im Kontextmenü der Aufgabe \"Aufgabe planen\" auswählen. Zum Öffnen klicken Sie auf die 3 kleinen Punkte rechts neben einer Aufgabe.",
     "NO_SCHEDULED_TITLE": "Geplante Aufgaben für den Tag",
     "REPEATED_TASKS": "Wiederkehrende Aufgaben",
     "SCHEDULED_TASKS": "Geplante Aufgaben",
-    "SCHEDULED_TASKS_WITH_REMINDER": "Geplante Aufgaben mit Erinnerung",
+    "SCHEDULED_TASKS_WITH_TIME": "Geplante Aufgaben mit Erinnerung",
     "START_TASK": "Aufgabe jetzt starten und Erinnerung entfernen"
   },
   "THEMES": {
@@ -1704,6 +2185,7 @@
   "V": {
     "E_1TO10": "Bitte geben Sie einen Wert zwischen 1 und 10 ein",
     "E_DATETIME": "Der eingegebene Wert ist keine Datums- / Uhrzeitangabe!",
+    "E_DURATION": "Bitte geben Sie eine gültige Dauer ein (z.B. 1h)",
     "E_MAX": "Sollte nicht größer als {{val}} sein",
     "E_MAX_LENGTH": "Darf maximal {{val}} Zeichen lang sein",
     "E_MIN": "Darf nicht kleiner als {{val}} sein",
@@ -1713,17 +2195,20 @@
   },
   "WW": {
     "ADD_MORE": "Weitere hinzufügen",
-    "ADD_SCHEDULED_FOR_TODAY": "Für heute geplante Aufgaben hinzufügen ({{nr}})",
     "ADD_SCHEDULED_FOR_TOMORROW": "Für morgen geplante Aufgaben hinzufügen ({{nr}})",
     "ADD_SOME_TASKS": "Fügen Sie einige Aufgaben hinzu, um Ihren Tag zu planen!",
-    "COMPLETED_TASKS": "Abgeschlossene Aufgaben",
+    "DONE_TASKS": "Erledigte Aufgaben",
+    "DONE_TASKS_IN_ARCHIVE": "Derzeit sind hier keine erledigten Aufgaben, aber es gibt bereits einige archivierte.",
     "ESTIMATE_REMAINING": "Schätzung verbleibend:",
+    "LATER_TODAY": "Heute später",
     "FINISH_DAY": "Tag beenden",
     "FINISH_DAY_FOR_PROJECT": "Tag für dieses Projekt beenden",
     "FINISH_DAY_FOR_TAG": "Tag für dieses Schlüsselwort beenden",
     "FINISH_DAY_TOOLTIP": "Evaluieren Sie Ihren Tag, alle Aufgaben werden optional in das Archiv verschoben und/oder planen Sie Ihren nächsten Tag",
     "HELP_PROCRASTINATION": "Hilfe, ich prokrastiniere!",
-    "NO_COMPLETED_TASKS": "Derzeit sind keine Aufgaben erledigt",
+    "MOVE_DONE_TO_ARCHIVE": "Erledigte Aufgaben ins Archiv verschieben",
+    "NO_DONE_TASKS": "Derzeit gibt es keine erledigten Aufgaben",
+    "NO_PLANNED_TASK_ALL_DONE": "alle Aufgaben erledigt",
     "NO_PLANNED_TASKS": "Keine geplanten Aufgaben",
     "READY_TO_WORK": "Bereit zu arbeiten!",
     "RESET_BREAK_TIMER": "Reset ohne Pausenzeit",

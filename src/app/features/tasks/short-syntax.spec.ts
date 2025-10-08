@@ -1,6 +1,6 @@
 import { TaskCopy } from './task.model';
 import { shortSyntax } from './short-syntax';
-import { getWorklogStr } from '../../util/get-work-log-str';
+import { getDbDateStr } from '../../util/get-db-date-str';
 import {
   MONTH_SHORT_NAMES,
   oneDayInMilliseconds,
@@ -9,10 +9,11 @@ import { Tag } from '../tag/tag.model';
 import { DEFAULT_TAG } from '../tag/tag.const';
 import { Project } from '../project/project.model';
 import { DEFAULT_GLOBAL_CONFIG } from '../config/default-global-config.const';
+import { INBOX_PROJECT } from '../project/project.const';
 
 const TASK: TaskCopy = {
   id: 'id',
-  projectId: undefined,
+  projectId: INBOX_PROJECT.id,
   subTaskIds: [],
   timeSpentOnDay: {},
   timeSpent: 0,
@@ -26,7 +27,7 @@ const TASK: TaskCopy = {
   reminderId: undefined,
   created: Date.now(),
   repeatCfgId: undefined,
-  plannedAt: undefined,
+  dueWithTime: undefined,
 
   attachments: [],
 
@@ -54,7 +55,7 @@ const getPlannedDateTimestampFromShortSyntaxReturnValue = (
   now: Date = new Date(),
 ): number => {
   const r = shortSyntax(taskInput, CONFIG, undefined, undefined, now);
-  const parsedDateInMilliseconds = r?.taskChanges?.plannedAt as number;
+  const parsedDateInMilliseconds = r?.taskChanges?.dueWithTime as number;
   return parsedDateInMilliseconds;
 };
 
@@ -167,7 +168,7 @@ describe('shortSyntax', () => {
           title: 'Fun title',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
         },
@@ -188,7 +189,7 @@ describe('shortSyntax', () => {
           title: 'Fun title whatever',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 3600000,
+            [getDbDateStr()]: 3600000,
           },
           timeEstimate: 7200000,
         },
@@ -226,7 +227,7 @@ describe('shortSyntax', () => {
           title: 'Fun title whatever',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 5400000,
+            [getDbDateStr()]: 5400000,
           },
           timeEstimate: 9000000,
         },
@@ -249,10 +250,12 @@ describe('shortSyntax', () => {
         ...TASK,
         title: 'Test @4pm',
       };
-      const parsedDateInMilliseconds =
-        getPlannedDateTimestampFromShortSyntaxReturnValue(t);
-      const parsedDate = new Date(parsedDateInMilliseconds);
       const now = new Date();
+      const parsedDateInMilliseconds = getPlannedDateTimestampFromShortSyntaxReturnValue(
+        t,
+        now,
+      );
+      const parsedDate = new Date(parsedDateInMilliseconds);
       if (now.getHours() > 16 || (now.getHours() === 16 && now.getMinutes() > 0)) {
         const isSetToTomorrow = checkIfADateIsTomorrow(now, parsedDate);
         expect(isSetToTomorrow).toBeTrue();
@@ -643,7 +646,7 @@ describe('shortSyntax', () => {
           title: 'Fun title',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
           tagIds: ['blu_id'],
@@ -664,7 +667,7 @@ describe('shortSyntax', () => {
         taskChanges: {
           title: 'Fun title',
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
           tagIds: ['blu_id'],
@@ -702,7 +705,7 @@ describe('shortSyntax', () => {
         taskChanges: {
           title: 'Fun title #blu',
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
         },
@@ -773,7 +776,7 @@ describe('shortSyntax', () => {
           title: 'Fun title',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
         },
@@ -794,7 +797,7 @@ describe('shortSyntax', () => {
           title: 'Fun title +ProjectEasyShort',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
         },
@@ -912,7 +915,7 @@ describe('shortSyntax', () => {
           title: 'Fun title',
           // timeSpent: 7200000,
           timeSpentOnDay: {
-            [getWorklogStr()]: 600000,
+            [getDbDateStr()]: 600000,
           },
           timeEstimate: 3600000,
         },
@@ -1018,6 +1021,35 @@ describe('shortSyntax', () => {
     });
   });
 
+  describe('projects using special delimiters', () => {
+    const taskTemplates = [
+      'Task *',
+      'Task * 10m',
+      'Task * 1h / 2d',
+      'Task * @tomorrow',
+      'Task * @in 1 day',
+      'Task * #A',
+    ];
+
+    const projects = ['a+b', '10 contracts', 'c++', 'my@email.com', 'issue#123'].map(
+      (title) => ({ id: title, title }) as Project,
+    );
+
+    for (const taskTemplate of taskTemplates) {
+      for (const project of projects) {
+        const taskTitle = taskTemplate.replaceAll('*', `+${project.title}`);
+        it(`should parse project "${project.title}" from "${taskTitle}"`, () => {
+          const task = {
+            ...TASK,
+            title: taskTitle,
+          };
+          const result = shortSyntax(task, CONFIG, ALL_TAGS, projects);
+          expect(result?.projectId).toBe(project.id);
+        });
+      }
+    }
+  });
+
   // This group of tests address Chrono's parsing the format "<date> <month> <yy}>" as year
   // This will cause unintended parsing result when the date syntax is used together with the time estimate syntax
   // https://github.com/johannesjo/super-productivity/issues/4194
@@ -1037,10 +1069,10 @@ describe('shortSyntax', () => {
       };
       const parsedTaskInfo = shortSyntax(t, CONFIG, []);
       const taskChanges = parsedTaskInfo?.taskChanges;
-      const plannedAt = taskChanges?.plannedAt as number;
+      const dueWithTime = taskChanges?.dueWithTime as number;
       expect(
         checkIfCorrectDateMonthAndYear(
-          plannedAt,
+          dueWithTime,
           inputDayOfTheMonth,
           inputMonth,
           tomorrow.getFullYear(),
@@ -1061,10 +1093,10 @@ describe('shortSyntax', () => {
       };
       const parsedTaskInfo = shortSyntax(t, CONFIG, []);
       const taskChanges = parsedTaskInfo?.taskChanges;
-      const plannedAt = taskChanges?.plannedAt as number;
+      const dueWithTime = taskChanges?.dueWithTime as number;
       expect(
         checkIfCorrectDateMonthAndYear(
-          plannedAt,
+          dueWithTime,
           inputDayOfTheMonth,
           inputMonth,
           tomorrow.getFullYear(),

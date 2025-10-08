@@ -9,10 +9,12 @@ import {
   shareReplay,
   startWith,
   switchMap,
+  tap,
 } from 'rxjs/operators';
 import { Tick } from './tick.model';
 import { DateService } from 'src/app/core/date/date.service';
 import { GlobalConfigService } from 'src/app/features/config/global-config.service';
+import { Log } from '../log';
 
 @Injectable({
   providedIn: 'root',
@@ -45,6 +47,7 @@ export class GlobalTrackingIntervalService {
     startWith(this._dateService.todayStr()),
     concatMap(() => of(this._dateService.todayStr())),
     distinctUntilChanged(),
+    tap((v) => Log.log('DAY_CHANGE ' + v)),
     // needs to be shareReplay otherwise some instances will never receive an update until a change occurs
     shareReplay(1),
   );

@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { select, Store } from '@ngrx/store';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { combineLatest, interval, Observable, of, timer } from 'rxjs';
 import {
   WorkContext,
@@ -32,6 +33,7 @@ import { hasTasksToWorkOn, mapEstimateRemainingFromTasks } from './work-context.
 import {
   flattenTasks,
   selectAllTasks,
+  selectAllTasksWithSubTasks,
   selectTasksWithSubTasksByIds,
 } from '../tasks/store/task.selectors';
 import { Actions, ofType } from '@ngrx/effects';
@@ -61,6 +63,10 @@ import { getTimeSpentForDay } from './get-time-spent-for-day.util';
 import { TimeTrackingService } from '../time-tracking/time-tracking.service';
 import { TimeTrackingActions } from '../time-tracking/store/time-tracking.actions';
 import { TaskArchiveService } from '../time-tracking/task-archive.service';
+import { INBOX_PROJECT } from '../project/project.const';
+import { selectProjectById } from '../project/store/project.selectors';
+import { getDbDateStr } from '../../util/get-db-date-str';
+import { Log } from '../../core/log';
 
 @Injectable({
   providedIn: 'root',
@@ -136,13 +142,26 @@ export class WorkContextService {
     switchMap(() => this._store$.select(selectActiveWorkContext)),
     shareReplay(1),
   );
+
   activeWorkContextTTData$ = this.activeWorkContext$.pipe(
     switchMap((ac) => this._timeTrackingService.getWorkStartEndForWorkContext$(ac)),
     shareReplay(1),
   );
 
   activeWorkContextTitle$: Observable<string> = this.activeWorkContext$.pipe(
-    map((activeContext) => activeContext.title),
+    switchMap((activeContext) => {
+      if (activeContext.id === TODAY_TAG.id && activeContext.title === TODAY_TAG.title) {
+        return this._translateService.stream(T.G.TODAY_TAG_TITLE);
+      }
+      if (
+        activeContext.id === INBOX_PROJECT.id &&
+        activeContext.title === INBOX_PROJECT.title
+      ) {
+        return this._translateService.stream(T.G.INBOX_PROJECT_TITLE);
+      }
+
+      return of(activeContext.title);
+    }),
   );
 
   mainWorkContext$: Observable<WorkContext> = this._isAllDataLoaded$.pipe(
@@ -167,6 +186,32 @@ export class WorkContextService {
             })),
           )
         : of(mainWorkContext),
+    ),
+  );
+
+  inboxWorkContext$: Observable<WorkContext> = this._isAllDataLoaded$.pipe(
+    concatMap(() => this._store$.select(selectProjectById, { id: INBOX_PROJECT.id })),
+    map(
+      (inboxWorkContext) =>
+        ({
+          ...inboxWorkContext,
+          type: WorkContextType.TAG,
+          routerLink: `tag/${inboxWorkContext.id}`,
+          // TODO get pinned noteIds
+          noteIds: [],
+        }) as WorkContext,
+    ),
+    switchMap((inboxWorkContext) =>
+      inboxWorkContext.id === INBOX_PROJECT.id &&
+      inboxWorkContext.title === INBOX_PROJECT.title
+        ? this._translateService.stream(T.G.INBOX_PROJECT_TITLE).pipe(
+            distinctUntilChanged(),
+            map((translation) => ({
+              ...inboxWorkContext,
+              title: translation,
+            })),
+          )
+        : of(inboxWorkContext),
     ),
   );
 
@@ -215,10 +260,12 @@ export class WorkContextService {
   );
 
   todaysTasks$: Observable<TaskWithSubTasks[]> = this.todaysTaskIds$.pipe(
-    // tap(() => console.log('TRIGGER TODAY TASKS')),
-    switchMap((taskIds) => this._getTasksByIds$(taskIds)),
+    // tap((taskIds: string[]) => Log.log('[WorkContext] Today task IDs:', taskIds)),
+    switchMap((taskIds: string[]) => this._getTasksByIds$(taskIds)),
     // TODO find out why this is triggered so often
-    // tap(() => console.log('AFTER SWITCHMAP  TODAYSTASKS')),
+    // tap((tasks: TaskWithSubTasks[]) =>
+    //   Log.log('[WorkContext] Today tasks loaded:', tasks.length, 'tasks'),
+    // ),
     // map(to => to.filter(t => !!t)),
     shareReplay(1),
   );
@@ -240,13 +287,6 @@ export class WorkContextService {
     ),
   );
 
-  undoneTasks$: Observable<TaskWithSubTasks[]> = this.todaysTasks$.pipe(
-    map((tasks) => tasks.filter((task) => task && !task.isDone)),
-  );
-
-  doneTasks$: Observable<TaskWithSubTasks[]> = this.todaysTasks$.pipe(
-    map((tasks) => tasks.filter((task) => task && task.isDone)),
-  );
   doneTaskIds$: Observable<string[]> = this._store$.select(
     selectDoneTaskIdsForActiveContext,
   );
@@ -263,14 +303,15 @@ export class WorkContextService {
     this.backlogTasks$,
   ]).pipe(map(([today, backlog]) => [...today, ...backlog]));
 
-  startableTasksForActiveContext$: Observable<Task[]> = this._afterDataLoadedOnce$.pipe(
-    switchMap(() => this._store$),
+  startableTasksForActiveContext$: Observable<Task[]> = this._store$.pipe(
     select(selectStartableTasksForActiveContext),
     shareReplay(1),
   );
+  startableTasksForActiveContext = toSignal(this.startableTasksForActiveContext$, {
+    initialValue: [],
+  });
 
-  trackableTasksForActiveContext$: Observable<Task[]> = this._afterDataLoadedOnce$.pipe(
-    switchMap(() => this._store$),
+  trackableTasksForActiveContext$: Observable<Task[]> = this._store$.pipe(
     select(selectTrackableTasksForActiveContext),
   );
 
@@ -281,8 +322,13 @@ export class WorkContextService {
   workingTodayArchived$: Observable<number> =
     this._globalTrackingIntervalService.todayDateStr$.pipe(
       switchMap((worklogStrDate) =>
-        this.getTimeWorkedForDayForArchivedTasks(worklogStrDate),
+        this.getTimeWorkedForDayForTasksInArchiveYoung(worklogStrDate),
       ),
+    );
+
+  doneTodayArchived$: Observable<number> =
+    this._globalTrackingIntervalService.todayDateStr$.pipe(
+      switchMap((worklogStrDate) => this.getDoneTodayInArchive(worklogStrDate)),
     );
 
   isHasTasksToWorkOn$: Observable<boolean> = this.todaysTasks$.pipe(
@@ -322,6 +368,37 @@ export class WorkContextService {
   isToday$: Observable<boolean> = this.activeWorkContextId$.pipe(
     map((id) => id === TODAY_TAG.id),
     shareReplay(1),
+  );
+
+  undoneTasks$: Observable<TaskWithSubTasks[]> = this.todaysTasks$.pipe(
+    map((tasks) =>
+      tasks.filter((task) => {
+        if (!task || task.isDone) {
+          return false;
+        }
+
+        // Filter out tasks scheduled for later today
+        if (this.activeWorkContextId === TODAY_TAG.id && task.dueWithTime) {
+          const now = Date.now();
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+
+          // If the task is scheduled for later today, exclude it
+          if (task.dueWithTime >= now && task.dueWithTime <= todayEnd.getTime()) {
+            return false;
+          }
+        }
+
+        return true;
+      }),
+    ),
+  );
+
+  doneTasks$: Observable<TaskWithSubTasks[]> = this.isToday$.pipe(
+    switchMap((isToday) =>
+      isToday ? this._store$.select(selectAllTasksWithSubTasks) : this.todaysTasks$,
+    ),
+    map((tasks) => tasks.filter((task) => task && task.isDone)),
   );
 
   constructor() {
@@ -379,14 +456,46 @@ export class WorkContextService {
     );
   }
 
-  async getTimeWorkedForDayForArchivedTasks(
+  async getDoneTodayInArchive(
     day: string = this._dateService.todayStr(),
   ): Promise<number> {
     const isToday = await this.isToday$.pipe(first()).toPromise();
     const { activeId, activeType } = await this.activeWorkContextTypeAndId$
       .pipe(first())
       .toPromise();
-    const taskArchiveState = await this._taskArchiveService.load();
+    // young should be enough for this
+    const taskArchiveState = await this._taskArchiveService.loadYoung();
+
+    const { ids, entities } = taskArchiveState;
+    const tasksDoneToday: ArchiveTask[] = ids
+      .map((id) => entities[id])
+      .filter(
+        (t) => !!t && !t.parentId && t.doneOn && getDbDateStr(t.doneOn) === day,
+      ) as ArchiveTask[];
+
+    let tasksToConsider: ArchiveTask[] = [];
+    if (isToday) {
+      tasksToConsider = tasksDoneToday;
+    } else {
+      if (activeType === WorkContextType.PROJECT) {
+        tasksToConsider = tasksDoneToday.filter((t) => t.projectId === activeId);
+      } else {
+        tasksToConsider = tasksDoneToday.filter((t) => t.tagIds.includes(activeId));
+      }
+    }
+
+    return tasksToConsider.length;
+  }
+
+  async getTimeWorkedForDayForTasksInArchiveYoung(
+    day: string = this._dateService.todayStr(),
+  ): Promise<number> {
+    const isToday = await this.isToday$.pipe(first()).toPromise();
+    const { activeId, activeType } = await this.activeWorkContextTypeAndId$
+      .pipe(first())
+      .toPromise();
+    // young should be enough for this
+    const taskArchiveState = await this._taskArchiveService.loadYoung();
 
     const { ids, entities } = taskArchiveState;
     const tasksWorkedOnToday: ArchiveTask[] = ids
@@ -516,7 +625,7 @@ export class WorkContextService {
 
   private _updateAdvancedCfgForCurrentContext(
     sectionKey: WorkContextAdvancedCfgKey,
-    data: any,
+    data: unknown,
   ): void {
     if (this.activeWorkContextType === WorkContextType.PROJECT) {
       this._store$.dispatch(
@@ -540,7 +649,7 @@ export class WorkContextService {
   // we don't want a circular dependency that's why we do it here...
   private _getTasksByIds$(ids: string[]): Observable<TaskWithSubTasks[]> {
     if (!Array.isArray(ids)) {
-      console.log({ ids });
+      Log.log({ ids });
       throw new Error('Invalid param provided for getByIds$ :(');
     }
     return this._store$.select(selectTasksWithSubTasksByIds, { ids });
@@ -549,7 +658,7 @@ export class WorkContextService {
   // we don't want a circular dependency that's why we do it here...
   private _getNotesByIds$(ids: string[]): Observable<Note[]> {
     if (!Array.isArray(ids)) {
-      console.log({ ids });
+      Log.log({ ids });
       throw new Error('Invalid param provided for getByIds$ :(');
     }
     return this._store$.select(selectNotesById, { ids });

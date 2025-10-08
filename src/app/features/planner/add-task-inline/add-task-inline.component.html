@@ -11,15 +11,14 @@
 }
 @if (isShowAddTask) {
   <add-task-bar
-    [isElevated]="true"
     [isHideTagTitles]="true"
-    (blurred)="isShowAddTask = false"
+    (closed)="isShowAddTask = false"
     (done)="isShowAddTask = false"
     (afterTaskAdd)="afterTaskAdd.emit($event)"
     [planForDay]="planForDay()"
-    [isSkipAddingCurrentTag]="isSkipAddingCurrentTag()"
     [taskIdsToExclude]="taskIdsToExclude()"
     [additionalFields]="additionalFields()"
     [tagsToRemove]="tagsToRemove()"
+    [isNoDefaults]="isNoDefaults()"
   ></add-task-bar>
 }

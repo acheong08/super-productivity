@@ -2,22 +2,28 @@ import {
   TASK_REPEAT_WEEKDAY_MAP,
   TaskRepeatCfg,
 } from '../../task-repeat-cfg/task-repeat-cfg.model';
-import moment from 'moment';
 import { T } from '../../../t.const';
 import { getDateTimeFromClockString } from '../../../util/get-date-time-from-clock-string';
 import { dateStrToUtcDate } from '../../../util/date-str-to-utc-date';
+import { getWeekdaysMin } from '../../../util/get-weekdays-min';
+import { DateTimeFormatService } from '../../../core/date-time-format/date-time-format.service';
 
 export const getTaskRepeatInfoText = (
   repeatCfg: TaskRepeatCfg,
-  locale: string,
+  locale: string | undefined,
+  dateTimeFormatService?: DateTimeFormatService,
 ): [string, { [key: string]: string | number }] => {
   const timeStr = repeatCfg.startTime
-    ? new Date(
-        getDateTimeFromClockString(repeatCfg.startTime, new Date()),
-      ).toLocaleTimeString(locale, {
-        hour: 'numeric',
-        minute: 'numeric',
-      })
+    ? dateTimeFormatService
+      ? dateTimeFormatService.formatTime(
+          getDateTimeFromClockString(repeatCfg.startTime, new Date()),
+        )
+      : new Date(
+          getDateTimeFromClockString(repeatCfg.startTime, new Date()),
+        ).toLocaleTimeString(locale, {
+          hour: 'numeric',
+          minute: 'numeric',
+        })
     : '';
 
   if (repeatCfg.repeatEvery !== 1) {
@@ -70,7 +76,7 @@ export const getTaskRepeatInfoText = (
       ];
 
     case 'WEEKLY':
-      const localWeekDays = moment.weekdaysMin();
+      const localWeekDays = getWeekdaysMin(locale);
       const enabledDays = TASK_REPEAT_WEEKDAY_MAP.filter((day) => repeatCfg[day]);
 
       if (enabledDays.length === 1) {

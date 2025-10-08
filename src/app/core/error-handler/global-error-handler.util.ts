@@ -1,14 +1,37 @@
 import { HANDLED_ERROR_PROP_STR, IS_ELECTRON } from '../../app.constants';
 import StackTrace from 'stacktrace-js';
-import pThrottle from 'p-throttle';
 import newGithubIssueUrl from 'new-github-issue-url';
 import { getBeforeLastErrorActionLog } from '../../util/action-logger';
-import { download } from '../../util/download';
+import { download, downloadLogs } from '../../util/download';
 import { privacyExport } from '../../imex/file-imex/privacy-export';
 import { getAppVersionStr } from '../../util/get-app-version-str';
-import { CompleteBackup } from '../../pfapi/api';
+import { Log } from '../log';
 
 let isWasErrorAlertCreated = false;
+
+// Simple throttle implementation to avoid FinalizationRegistry dependency
+const createSimpleThrottle = (limit: number, interval: number) => {
+  const timestamps: number[] = [];
+
+  return <T extends (...args: unknown[]) => unknown>(fn: T) => {
+    return ((...args: Parameters<T>) => {
+      const now = Date.now();
+
+      // Remove old timestamps outside the interval
+      while (timestamps.length > 0 && timestamps[0] <= now - interval) {
+        timestamps.shift();
+      }
+
+      // Check if we've exceeded the limit
+      if (timestamps.length >= limit) {
+        return Promise.resolve(''); // Return empty string for throttled calls
+      }
+
+      timestamps.push(now);
+      return fn(...args);
+    }) as T;
+  };
+};
 
 const _getStacktrace = async (err: Error | any): Promise<string> => {
   const isHttpError = err && (err.url || err.headers);
@@ -16,7 +39,9 @@ const _getStacktrace = async (err: Error | any): Promise<string> => {
 
   // Don't try to send stacktraces of HTTP errors as they are already logged on the server
   if (!isHttpError && isErrorWithStack && !isHandledError(err)) {
-    return StackTrace.fromError(err).then((stackframes) => {
+    return StackTrace.fromError(err, {
+      filter: (f) => f?.fileName !== 'log.ts',
+    }).then((stackframes) => {
       return stackframes
         .splice(0, 20)
         .map((sf) => {
@@ -25,15 +50,12 @@ const _getStacktrace = async (err: Error | any): Promise<string> => {
         .join('\n');
     });
   } else if (!isHandledError(err)) {
-    console.warn('Error without stack', err);
+    Log.err('Error without stack', err);
   }
   return Promise.resolve('');
 };
 
-const throttle = pThrottle({
-  limit: 2,
-  interval: 5000,
-});
+const throttle = createSimpleThrottle(2, 5000);
 const _getStacktraceThrottled = throttle(_getStacktrace);
 
 export const logAdvancedStacktrace = (
@@ -54,12 +76,12 @@ export const logAdvancedStacktrace = (
       }
 
       const githubIssueLinks = document.getElementsByClassName('github-issue-urlX');
-      console.log(githubIssueLinks);
+      Log.log(githubIssueLinks);
 
       if (githubIssueLinks) {
         const errEscaped = _cleanHtml(origErr as string);
         Array.from(githubIssueLinks).forEach((el) =>
-          el.setAttribute('href', getGithubErrorUrl(errEscaped, stack)),
+          el.setAttribute('href', getGithubErrorUrl(errEscaped, stack, origErr)),
         );
       }
 
@@ -76,15 +98,15 @@ const _cleanHtml = (str: string): string => {
 export const createErrorAlert = (
   err: string = '',
   stackTrace: string,
-  origErr: any,
-  userData?: CompleteBackup<any> | undefined,
+  origErr: unknown,
+  userData?: unknown,
 ): void => {
   if (isWasErrorAlertCreated) {
     return;
   }
   // it seems for whatever reason, sometimes we get tags in our error which break the html
   const errEscaped = _cleanHtml(err);
-  const githubUrl = getGithubErrorUrl(errEscaped, stackTrace);
+  const githubUrl = getGithubErrorUrl(errEscaped, stackTrace, origErr);
 
   const errorAlert = document.createElement('div');
   errorAlert.classList.add('global-error-alert');
@@ -95,7 +117,7 @@ export const createErrorAlert = (
     <h2 style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;">${errEscaped}<h2>
     <p><a href="${githubUrl}" class="github-issue-urlX" target="_blank">! Please copy & report !</a></p>
     <!-- second error is needed, because it might be too long -->
-    <pre style="line-height: 1.3;">${errEscaped}</pre>
+    ${typeof origErr === 'object' && origErr && 'additionalLog' in origErr ? `<pre style="line-height: 1; font-size: 11px;">${origErr.additionalLog}</pre>` : ''}
 
     <div id="error-fetching-info-wrapper">
       <div>Trying to load more info...</div>
@@ -124,7 +146,7 @@ export const createErrorAlert = (
   });
   innerWrapper.append(btnReload);
 
-  console.log(userData);
+  Log.log(userData);
 
   if (userData) {
     const btnExport = document.createElement('BUTTON');
@@ -142,13 +164,19 @@ export const createErrorAlert = (
     btnPrivacyExport.title =
       'Export anonymized data (to send to contact@super-productivity.com for debugging)';
     btnPrivacyExport.addEventListener('click', () => {
+      // Type assertion needed for privacy export function
       download(
         'ANONYMIZED-super-productivity-crash-user-data-export.json',
-        privacyExport(userData),
+        privacyExport(userData as Parameters<typeof privacyExport>[0]),
       );
     });
     innerWrapper.append(btnPrivacyExport);
   }
+
+  const btnLogs = document.createElement('BUTTON');
+  btnLogs.innerText = 'Logs';
+  btnLogs.addEventListener('click', () => downloadLogs());
+  innerWrapper.append(btnLogs);
 
   const tagReport = document.createElement('A');
   const btnReport = document.createElement('BUTTON');
@@ -198,6 +226,7 @@ export const isHandledError = (err: unknown): boolean => {
 export const getGithubErrorUrl = (
   title: string,
   stackTrace?: string,
+  origErr?: Error | unknown,
   isHideActionsBeforeError = false,
 ): string => {
   return newGithubIssueUrl({
@@ -205,12 +234,13 @@ export const getGithubErrorUrl = (
     repo: 'super-productivity',
     title: '💥 ' + title,
     template: 'in_app_bug_report.md',
-    body: getGithubIssueErrorMarkdown(stackTrace, isHideActionsBeforeError),
+    body: getGithubIssueErrorMarkdown(stackTrace, origErr, isHideActionsBeforeError),
   });
 };
 
 const getGithubIssueErrorMarkdown = (
   stacktrace?: string,
+  origErr?: Error | unknown,
   isHideActionsBeforeError = false,
 ): string => {
   const code = '```';
@@ -253,6 +283,8 @@ const getGithubIssueErrorMarkdown = (
 
 ### Url
 ${window.location.href}
+
+${typeof origErr === 'object' && origErr && 'additionalLog' in origErr ? `### AL\n${origErr.additionalLog}` : ''}
 
 ### Meta Info
 ${getSimpleMeta()}

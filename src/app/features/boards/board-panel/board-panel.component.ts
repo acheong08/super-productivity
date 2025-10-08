@@ -12,6 +12,7 @@ import {
   BoardPanelCfg,
   BoardPanelCfgScheduledState,
   BoardPanelCfgTaskDoneState,
+  BoardPanelCfgTaskTypeFilter,
 } from '../boards.model';
 import { select, Store } from '@ngrx/store';
 import {
@@ -27,23 +28,18 @@ import { TaskService } from '../../tasks/task.service';
 import { BoardsActions } from '../store/boards.actions';
 import { moveItemInArray } from '../../../util/move-item-in-array';
 import { unique } from '../../../util/unique';
-import {
-  moveToOtherProject,
-  unScheduleTask,
-  updateTask,
-} from '../../tasks/store/task.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { LocalDateStrPipe } from '../../../ui/pipes/local-date-str.pipe';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
 import { TranslatePipe } from '@ngx-translate/core';
-import { PlannerService } from '../../planner/planner.service';
 import { DialogScheduleTaskComponent } from '../../planner/dialog-schedule-task/dialog-schedule-task.component';
 import { MatDialog } from '@angular/material/dialog';
 import { fastArrayCompare } from '../../../util/fast-array-compare';
 import { first, take } from 'rxjs/operators';
-import { PlannerActions } from '../../planner/store/planner.actions';
 import { ShortPlannedAtPipe } from '../../../ui/pipes/short-planned-at.pipe';
 import { MsToStringPipe } from '../../../ui/duration/ms-to-string.pipe';
+import { selectUnarchivedVisibleProjects } from '../../project/store/project.selectors';
 
 @Component({
   selector: 'board-panel',
@@ -72,15 +68,27 @@ export class BoardPanelComponent {
 
   store = inject(Store);
   taskService = inject(TaskService);
-  plannerService = inject(PlannerService);
   _matDialog = inject(MatDialog);
 
   allTasks$ = this.store.select(selectAllTasksWithoutHiddenProjects);
   allTasks = toSignal(this.allTasks$, {
     initialValue: [],
   });
-  plannedTaskDayMap = toSignal(this.plannerService.plannedTaskDayMap$, {
-    initialValue: {},
+
+  allProjects$ = this.store.select(selectUnarchivedVisibleProjects);
+  allProjects = toSignal(this.allProjects$, {
+    initialValue: [],
+  });
+
+  // Create a Set of all backlog task IDs for fast lookup
+  allBacklogTaskIds = computed(() => {
+    const backlogIds = new Set<string>();
+    for (const project of this.allProjects()) {
+      if (project && project.backlogTaskIds && Array.isArray(project.backlogTaskIds)) {
+        project.backlogTaskIds.forEach((id) => backlogIds.add(id));
+      }
+    }
+    return backlogIds;
   });
 
   totalEstimate = computed(() =>
@@ -108,7 +116,6 @@ export class BoardPanelComponent {
 
   tasks = computed(() => {
     const panelCfg = this.panelCfg();
-    const plannedTaskDayMap = this.plannedTaskDayMap();
     const orderedTasks: TaskCopy[] = [];
     const nonOrderedTasks: TaskCopy[] = [];
 
@@ -143,11 +150,19 @@ export class BoardPanelComponent {
       }
 
       if (panelCfg.scheduledState === BoardPanelCfgScheduledState.Scheduled) {
-        isTaskIncluded = isTaskIncluded && (task.plannedAt || plannedTaskDayMap[task.id]);
+        isTaskIncluded = isTaskIncluded && !!(task.dueWithTime || task.dueDay);
       }
 
       if (panelCfg.scheduledState === BoardPanelCfgScheduledState.NotScheduled) {
-        isTaskIncluded = isTaskIncluded && !task.plannedAt && !plannedTaskDayMap[task.id];
+        isTaskIncluded = isTaskIncluded && !task.dueWithTime && !task.dueDay;
+      }
+
+      if (panelCfg.backlogState === BoardPanelCfgTaskTypeFilter.OnlyBacklog) {
+        isTaskIncluded = isTaskIncluded && this._isTaskInBacklog(task);
+      }
+
+      if (panelCfg.backlogState === BoardPanelCfgTaskTypeFilter.NoBacklog) {
+        isTaskIncluded = isTaskIncluded && !this._isTaskInBacklog(task);
       }
 
       return isTaskIncluded;
@@ -207,7 +222,7 @@ export class BoardPanelComponent {
         .toPromise();
 
       this.store.dispatch(
-        moveToOtherProject({
+        TaskSharedActions.moveToOtherProject({
           task: taskWithSubTasks,
           targetProjectId: panelCfg.projectId,
         }),
@@ -215,7 +230,9 @@ export class BoardPanelComponent {
     }
 
     if (Object.keys(updates).length > 0) {
-      this.store.dispatch(updateTask({ task: { id: task.id, changes: updates } }));
+      this.store.dispatch(
+        TaskSharedActions.updateTask({ task: { id: task.id, changes: updates } }),
+      );
     }
 
     this.store.dispatch(
@@ -266,7 +283,7 @@ export class BoardPanelComponent {
         .select(selectTaskById, { id: taskId })
         .pipe(first())
         .toPromise();
-      if (!this.plannedTaskDayMap()[taskId] && !task.plannedAt) {
+      if (!task.dueDay && !task.dueWithTime) {
         this.scheduleTask(task);
       }
     }
@@ -275,17 +292,18 @@ export class BoardPanelComponent {
         .select(selectTaskById, { id: taskId })
         .pipe(first())
         .toPromise();
-      if (this.plannedTaskDayMap()[taskId]) {
-        this.store.dispatch(PlannerActions.removeTaskFromDays({ taskId }));
-      } else if (task.reminderId) {
-        this.store.dispatch(
-          unScheduleTask({
-            id: taskId,
-            reminderId: task.reminderId,
-            isSkipToast: false,
-          }),
-        );
-      }
+
+      this.store.dispatch(
+        TaskSharedActions.unscheduleTask({
+          id: taskId,
+          reminderId: task.reminderId,
+          isSkipToast: false,
+        }),
+      );
     }
+  }
+
+  _isTaskInBacklog(task: Readonly<TaskCopy>): boolean {
+    return this.allBacklogTaskIds().has(task.id);
   }
 }

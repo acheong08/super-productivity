@@ -1,12 +1,19 @@
-import { ConflictData, LocalMeta, RemoteMeta } from '../pfapi.model';
+import { ConflictData, LocalMeta, RemoteMeta, VectorClock } from '../pfapi.model';
 import { ConflictReason, SyncStatus } from '../pfapi.const';
+import { ImpossibleError, InvalidMetaError, NoRemoteMetaFile } from '../errors/errors';
+import { PFLog } from '../../../core/log';
+import { hasVectorClocks } from './backwards-compat';
 import {
-  ImpossibleError,
-  InvalidMetaError,
-  NoRemoteMetaFile,
-  SyncInvalidTimeValuesError,
-} from '../errors/errors';
-import { pfLog } from './log';
+  compareVectorClocks,
+  VectorClockComparison,
+  hasVectorClockChanges,
+  vectorClockToString,
+} from './vector-clock';
+
+const getTotalVectorClockUpdates = (vc: VectorClock | null | undefined): number => {
+  if (!vc) return 0;
+  return Object.values(vc).reduce((sum, val) => sum + val, 0);
+};
 
 // TODO unit test the hell out of this
 export const getSyncStatusFromMetaFiles = (
@@ -23,6 +30,45 @@ export const getSyncStatusFromMetaFiles = (
     throw new InvalidMetaError('localSyncMetaData is not defined');
   }
 
+  // Check for first-time sync with minimal local data
+  // Only auto-import remote if local has very few changes (indicating fresh installation)
+  const MINIMAL_UPDATE_THRESHOLD = 1;
+
+  // Handle the case where remote is empty (lastUpdate = 0) - should upload local data
+  if (remote.lastUpdate === 0 && local.lastUpdate > 0) {
+    PFLog.normal('Remote is empty, uploading local data');
+    return {
+      status: SyncStatus.UpdateRemote,
+    };
+  }
+
+  // Handle the case where local is empty (lastUpdate = 0) - should download remote data
+  if (local.lastUpdate === 0 && remote.lastUpdate > 0) {
+    PFLog.normal('Local is empty, downloading remote data');
+    return {
+      status: SyncStatus.UpdateLocal,
+    };
+  }
+
+  if (local.vectorClock && remote.lastUpdate > 0) {
+    const localTotalUpdates = getTotalVectorClockUpdates(local.vectorClock);
+    const remoteTotalUpdates = getTotalVectorClockUpdates(remote.vectorClock);
+
+    // Only auto-import if local has minimal updates AND remote has significantly more
+    if (localTotalUpdates <= MINIMAL_UPDATE_THRESHOLD) {
+      PFLog.normal('First-time sync detected with minimal local data', {
+        localTotalUpdates,
+        remoteTotalUpdates,
+        threshold: MINIMAL_UPDATE_THRESHOLD,
+        localVectorClock: local.vectorClock,
+        remoteVectorClock: remote.vectorClock,
+      });
+      return {
+        status: SyncStatus.UpdateLocal,
+      };
+    }
+  }
+
   if (typeof local.lastUpdate !== 'number') {
     return {
       status: SyncStatus.UpdateLocal,
@@ -32,58 +78,121 @@ export const getSyncStatusFromMetaFiles = (
       status: SyncStatus.UpdateRemote,
     };
   } else {
-    if (typeof local.lastSyncedUpdate === 'number') {
-      const r = _checkForUpdate({
-        remote: remote.lastUpdate,
-        local: local.lastUpdate,
-        lastSync: local.lastSyncedUpdate,
-      });
+    // Check if we can use vector clocks for more accurate conflict detection
+    const localHasVectorClock =
+      local.vectorClock && Object.keys(local.vectorClock).length > 0;
+    const remoteHasVectorClock =
+      remote.vectorClock && Object.keys(remote.vectorClock).length > 0;
 
-      switch (r) {
-        case UpdateCheckResult.InSync:
-          return {
-            status: SyncStatus.InSync,
-          };
-        case UpdateCheckResult.LocalUpdateRequired:
-          return {
-            status: SyncStatus.UpdateLocal,
-          };
-        case UpdateCheckResult.RemoteUpdateRequired:
-          return {
-            status: SyncStatus.UpdateRemote,
-          };
-        case UpdateCheckResult.DataDiverged:
-          return {
-            status: SyncStatus.Conflict,
-            conflictData: {
-              reason: ConflictReason.BothNewerLastSync,
-              remote,
-              local,
-            },
-          };
-        case UpdateCheckResult.LastSyncNotUpToDate:
-          return {
-            status: SyncStatus.Conflict,
-            conflictData: {
-              reason: ConflictReason.MatchingModelChangeButLastSyncMismatch,
-              remote,
-              local,
-            },
-          };
-        default:
-          throw new ImpossibleError();
-      }
-    } else {
-      // when there is no value for last sync, but both local and remote have a value for lastSyncModelUpdate, we have conflict
+    PFLog.normal('Vector clock availability check', {
+      localHasVectorClock,
+      remoteHasVectorClock,
+      localVectorClock: local.vectorClock,
+      remoteVectorClock: remote.vectorClock,
+      hasVectorClocksResult: hasVectorClocks(local, remote),
+      localLastUpdate: local.lastUpdate,
+      remoteLastUpdate: remote.lastUpdate,
+      localLastSyncedUpdate: local.lastSyncedUpdate,
+    });
+
+    // Always return conflict if either side has no vector clock
+    if (!localHasVectorClock || !remoteHasVectorClock) {
       return {
         status: SyncStatus.Conflict,
         conflictData: {
-          reason: ConflictReason.NoLastSync,
+          reason: ConflictReason.BothNewerLastSync,
           remote,
           local,
+          additional: {
+            vectorClockMissing: true,
+            localHasVectorClock,
+            remoteHasVectorClock,
+          },
         },
       };
     }
+
+    // Try to use vector clocks first if both sides have them
+    if (hasVectorClocks(local, remote)) {
+      // Extract vector clocks directly since we're comparing full clocks
+      // Don't use backwards compatibility functions here as they require client ID for migration
+      const localVector = local.vectorClock!;
+      const remoteVector = remote.vectorClock!;
+      const lastSyncedVector = local.lastSyncedVectorClock;
+
+      PFLog.normal('Using vector clocks for sync status', {
+        localVector: vectorClockToString(localVector),
+        remoteVector: vectorClockToString(remoteVector),
+        lastSyncedVector: vectorClockToString(lastSyncedVector),
+        localVectorRaw: localVector,
+        remoteVectorRaw: remoteVector,
+        lastSyncedVectorRaw: lastSyncedVector,
+      });
+
+      try {
+        const vectorResult = _checkForUpdateVectorClock({
+          localVector,
+          remoteVector,
+          lastSyncedVector: lastSyncedVector || null,
+        });
+
+        switch (vectorResult) {
+          case UpdateCheckResult.InSync:
+            return {
+              status: SyncStatus.InSync,
+            };
+          case UpdateCheckResult.LocalUpdateRequired:
+            return {
+              status: SyncStatus.UpdateLocal,
+            };
+          case UpdateCheckResult.RemoteUpdateRequired:
+            return {
+              status: SyncStatus.UpdateRemote,
+            };
+          case UpdateCheckResult.DataDiverged:
+            return {
+              status: SyncStatus.Conflict,
+              conflictData: {
+                reason: ConflictReason.BothNewerLastSync,
+                remote,
+                local,
+                additional: {
+                  vectorClockComparison: VectorClockComparison.CONCURRENT,
+                  localVector: vectorClockToString(localVector),
+                  remoteVector: vectorClockToString(remoteVector),
+                },
+              },
+            };
+        }
+      } catch (e) {
+        PFLog.critical('Vector clock comparison failed', {
+          error: e,
+          localVector: vectorClockToString(localVector),
+          remoteVector: vectorClockToString(remoteVector),
+          lastSyncedVector: vectorClockToString(lastSyncedVector),
+        });
+
+        // Return conflict if vector clock comparison fails
+        return {
+          status: SyncStatus.Conflict,
+          conflictData: {
+            reason: ConflictReason.BothNewerLastSync,
+            remote,
+            local,
+            additional: {
+              vectorClockError: e instanceof Error ? e.message : 'Unknown error',
+              localVector: vectorClockToString(localVector),
+              remoteVector: vectorClockToString(remoteVector),
+            },
+          },
+        };
+      }
+    }
+
+    // This should never be reached since we return conflict if vector clocks are missing
+    throw new ImpossibleError(
+      'Reached unreachable code - vector clocks should be required',
+    );
   }
 };
 
@@ -95,86 +204,56 @@ enum UpdateCheckResult {
   LastSyncNotUpToDate = 'LastSyncNotUpToDate',
 }
 
-const _checkForUpdate = (params: {
-  remote: number;
-  local: number;
-  lastSync: number;
+const _checkForUpdateVectorClock = (params: {
+  localVector: VectorClock;
+  remoteVector: VectorClock;
+  lastSyncedVector: VectorClock | null;
 }): UpdateCheckResult => {
-  // TODO remove or improve
-  _logHelper(params);
-  const { remote, local, lastSync } = params;
-  const n = Date.now();
+  const { localVector, remoteVector, lastSyncedVector } = params;
 
-  if (remote > n || local > n || lastSync > n) {
-    throw new SyncInvalidTimeValuesError({
-      msg: 'Sync Error: One of the dates provided is from the future',
-      remote,
-      local,
-      lastSync,
-      n,
-    });
+  // Validate inputs
+  if (!localVector || typeof localVector !== 'object') {
+    throw new Error('Invalid localVector in vector clock comparison');
+  }
+  if (!remoteVector || typeof remoteVector !== 'object') {
+    throw new Error('Invalid remoteVector in vector clock comparison');
   }
 
-  if (lastSync > local) {
-    throw new SyncInvalidTimeValuesError({
-      msg: 'This should not happen. lastSync > local',
-      lastSync,
-      local,
-    });
-  }
+  PFLog.normal('Vector clock check', {
+    localVector: vectorClockToString(localVector),
+    remoteVector: vectorClockToString(remoteVector),
+    lastSyncedVector: vectorClockToString(lastSyncedVector),
+  });
 
-  if (local === remote) {
-    if (local === lastSync) {
+  // Check if there have been changes since last sync
+  const hasLocalChanges = hasVectorClockChanges(localVector, lastSyncedVector);
+  const hasRemoteChanges = hasVectorClockChanges(remoteVector, lastSyncedVector);
+
+  if (!hasLocalChanges && !hasRemoteChanges) {
+    return UpdateCheckResult.InSync;
+  } else if (hasLocalChanges && !hasRemoteChanges) {
+    return UpdateCheckResult.RemoteUpdateRequired;
+  } else if (!hasLocalChanges && hasRemoteChanges) {
+    return UpdateCheckResult.LocalUpdateRequired;
+  } else {
+    // Both have changes - need to check if they're truly concurrent
+    const comparison = compareVectorClocks(localVector, remoteVector);
+
+    PFLog.normal('Both sides have changes, vector comparison result:', comparison);
+
+    // If one vector clock dominates the other, we can still sync
+    if (comparison === VectorClockComparison.LESS_THAN) {
+      // Remote is strictly ahead, update local
+      return UpdateCheckResult.LocalUpdateRequired;
+    } else if (comparison === VectorClockComparison.GREATER_THAN) {
+      // Local is strictly ahead, update remote
+      return UpdateCheckResult.RemoteUpdateRequired;
+    } else if (comparison === VectorClockComparison.EQUAL) {
+      // Both have the same vector clock - they're in sync
       return UpdateCheckResult.InSync;
     } else {
-      return UpdateCheckResult.LastSyncNotUpToDate;
-    }
-  } else if (local > remote) {
-    if (lastSync < remote) {
-      pfLog(0, 'DATA DIVERGED: local > remote && lastSync < remote');
+      // Vectors are concurrent - true conflict
       return UpdateCheckResult.DataDiverged;
-    } else if (lastSync < local) {
-      return UpdateCheckResult.RemoteUpdateRequired;
-    } else if (lastSync === local) {
-      return UpdateCheckResult.RemoteUpdateRequired;
-    }
-  } else if (local < remote) {
-    if (lastSync !== local) {
-      pfLog(0, 'DATA DIVERGED: local < remote && lastSync !== local');
-      return UpdateCheckResult.DataDiverged;
-    } else {
-      return UpdateCheckResult.LocalUpdateRequired;
     }
   }
-
-  throw new ImpossibleError('inconclusive state');
-};
-
-const _logHelper = (params: {
-  remote: number;
-  local: number;
-  lastSync: number;
-}): void => {
-  pfLog(2, `${getSyncStatusFromMetaFiles.name}()`, params, {
-    remote: new Date(params.remote).toISOString(),
-    local: new Date(params.local).toISOString(),
-    lastSync: new Date(params.lastSync).toISOString(),
-  });
-  const oldestFirst = Object.keys(params).sort(
-    (k1: string, k2: string) => (params as any)[k1] - (params as any)[k2],
-  );
-  const keyOfOldest = oldestFirst[0];
-  const zeroed = oldestFirst.reduce(
-    (acc, key) => ({
-      ...acc,
-      [key]: ((params as any)[key] - (params as any)[keyOfOldest]) / 1000,
-    }),
-    {},
-  );
-  pfLog(
-    2,
-    `${getSyncStatusFromMetaFiles.name}()`,
-    zeroed,
-    (Date.now() - (params as any)[keyOfOldest]) / 1000,
-  );
 };

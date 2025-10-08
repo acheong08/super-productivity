@@ -1,8 +1,10 @@
+import { Log } from '../core/log';
+
 const synth = window.speechSynthesis;
 
 export const speak = (text: string, volume: number, voice: string): void => {
   if (!synth) {
-    console.warn('No window.speechSynthesis available.');
+    Log.err('No window.speechSynthesis available.');
     return;
   }
 
@@ -10,10 +12,12 @@ export const speak = (text: string, volume: number, voice: string): void => {
   const utter = new SpeechSynthesisUtterance();
   utter.text = text;
   utter.voice =
-    synth.getVoices().find((v) => v.name === voice) ||
+    synth.getVoices().find((v) => voice.includes(v.name)) ||
     synth.getVoices().find((v) => v.default) ||
     null;
-  utter.volume = volume;
+
+  console.log(volume);
+  utter.volume = volume / 100;
 
   synth.speak(utter);
 };

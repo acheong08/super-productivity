@@ -5,6 +5,11 @@ import { getWin } from './main-window';
 import { GlobalConfigState } from '../src/app/features/config/global-config.model';
 import { TaskCopy } from '../src/app/features/tasks/task.model';
 import { release } from 'os';
+import {
+  initOverlayIndicator,
+  updateOverlayEnabled,
+  updateOverlayTask,
+} from './overlay-indicator/overlay-indicator';
 
 let tray: Tray;
 let DIR: string;
@@ -43,6 +48,7 @@ export const initIndicator = ({
   tray.on('click', () => {
     showApp();
   });
+
   return tray;
 };
 
@@ -59,6 +65,23 @@ function initAppListeners(app: App): void {
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
 function initListeners(): void {
+  let isOverlayEnabled = false;
+  // Listen for settings updates to handle overlay enable/disable
+  ipcMain.on(IPC.UPDATE_SETTINGS, (ev, settings: GlobalConfigState) => {
+    const isOverlayEnabledNew = settings?.misc?.isOverlayIndicatorEnabled || false;
+    if (isOverlayEnabledNew === isOverlayEnabled) {
+      return;
+    }
+
+    isOverlayEnabled = isOverlayEnabledNew;
+    updateOverlayEnabled(isOverlayEnabled);
+
+    // Initialize overlay without shortcut (overlay doesn't need shortcut, that's for focus mode)
+    if (isOverlayEnabled) {
+      initOverlayIndicator(isOverlayEnabled);
+    }
+  });
+
   ipcMain.on(IPC.SET_PROGRESS_BAR, (ev, { progress }) => {
     const suf = shouldUseDarkColors ? '-d' : '-l';
     if (typeof progress === 'number' && progress > 0 && isFinite(progress)) {
@@ -73,10 +96,26 @@ function initListeners(): void {
 
   ipcMain.on(
     IPC.CURRENT_TASK_UPDATED,
-    (ev, currentTask, isPomodoroEnabled, currentPomodoroSessionTime) => {
+    (
+      ev,
+      currentTask,
+      isPomodoroEnabled,
+      currentPomodoroSessionTime,
+      isFocusModeEnabled,
+      currentFocusSessionTime,
+    ) => {
+      updateOverlayTask(
+        currentTask,
+        isPomodoroEnabled,
+        currentPomodoroSessionTime,
+        isFocusModeEnabled || false,
+        currentFocusSessionTime || 0,
+      );
+
       const mainWin = getWin();
       getSettings(mainWin, (settings: GlobalConfigState) => {
         const isTrayShowCurrentTask = settings.misc.isTrayShowCurrentTask;
+        const isTrayShowCurrentCountdown = settings.misc.isTrayShowCurrentCountdown;
 
         const msg =
           isTrayShowCurrentTask && currentTask
@@ -84,6 +123,7 @@ function initListeners(): void {
                 currentTask,
                 isPomodoroEnabled,
                 currentPomodoroSessionTime,
+                isTrayShowCurrentCountdown,
               )
             : '';
 
@@ -124,6 +164,7 @@ function createIndicatorMessage(
   task: TaskCopy,
   isPomodoroEnabled: boolean,
   currentPomodoroSessionTime: number,
+  isTrayShowCurrentCountdown: boolean,
 ): string {
   if (task && task.title) {
     let title = task.title;
@@ -132,18 +173,21 @@ function createIndicatorMessage(
       title = title.substring(0, 37) + '...';
     }
 
-    if (task.timeEstimate) {
-      const restOfTime = Math.max(task.timeEstimate - task.timeSpent, 0);
-      timeStr = getCountdownMessage(restOfTime);
-    } else if (task.timeSpent) {
-      timeStr = getCountdownMessage(task.timeSpent);
+    if (isTrayShowCurrentCountdown) {
+      if (task.timeEstimate) {
+        const restOfTime = Math.max(task.timeEstimate - task.timeSpent, 0);
+        timeStr = getCountdownMessage(restOfTime);
+      } else if (task.timeSpent) {
+        timeStr = getCountdownMessage(task.timeSpent);
+      }
+
+      if (isPomodoroEnabled) {
+        timeStr = getCountdownMessage(currentPomodoroSessionTime);
+      }
+      return `${title} ${timeStr}`;
     }
 
-    if (isPomodoroEnabled) {
-      timeStr = getCountdownMessage(currentPomodoroSessionTime);
-    }
-
-    return `${title} ${timeStr}`;
+    return title;
   }
 
   // NOTE: we need to make sure that this is always a string

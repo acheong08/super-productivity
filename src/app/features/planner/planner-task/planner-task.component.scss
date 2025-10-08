@@ -1,61 +1,68 @@
-@import '../../../../variables';
-@import '../../tasks/task/task.component.mixins';
-
-$h: $planner-item-height;
+@use '../../../../styles/_globals.scss' as *;
+@use '../../tasks/task/task.component.mixins' as *;
 
 :host {
-  border-radius: 6px;
-  min-height: $h;
+  border-radius: var(--task-border-radius);
+  min-height: var(--planner-item-height);
   display: flex;
   align-items: stretch;
-  background: $task-c-bg-light;
   @include grabCursor();
 
-  @include darkTheme() {
-    color: $task-text-c-dark;
-    background: $task-c-bg-dark;
-  }
+  color: var(--text-color);
+  background: var(--task-c-bg);
+  box-shadow: var(--task-shadow);
+  border: var(--task-border, none);
 
   &.isDone {
-    opacity: $task-is-done-dim-opacity;
+    opacity: var(--task-is-done-dim-opacity);
 
     .title {
       text-decoration: line-through;
     }
   }
+
+  // note: we use .tags-container, since we don't want margins for an empty list
+  ::ng-deep .tags-container {
+    // to match task title padding
+    margin-left: 3px;
+    margin-bottom: 2px;
+    margin-top: 2px;
+  }
 }
 
 :host-context(.isLightTheme).isCurrent {
-  border-color: $task-c-current !important;
+  border-color: var(--c-accent) !important;
   border-width: 1px !important;
   border-style: dashed;
 }
 
 :host-context(.isDarkTheme).isCurrent {
-  background: $task-c-current-bg-dark;
-  box-shadow: $task-current-shadow-dark;
+  background: var(--task-c-current-bg);
+  box-shadow: var(--task-current-shadow);
 }
 
 .no-drag {
-  padding: 4px 0;
   display: flex;
   align-items: center;
   flex-grow: 1;
   flex-shrink: 1;
   min-width: 0;
   position: relative;
-}
-
-::ng-deep .tag-title {
-  font-size: $planner-font-size-smaller-mobile !important;
+  padding: 4px 0;
 
   @include mq(xs) {
-    font-size: $planner-font-size-smaller !important;
+    padding: 2px 0;
+  }
+}
+
+:host ::ng-deep .tag-title {
+  @include mq(xs) {
+    font-size: var(--planner-font-size-smaller) !important;
   }
 }
 
 .play-icon-indicator {
-  color: $c-accent;
+  color: var(--c-accent);
   // NOTE: we do this since change detection does not immediately pick up on _taskService.currentTaskId
   display: none;
 
@@ -81,12 +88,11 @@ $h: $planner-item-height;
   position: relative;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: $planner-font-size-mobile;
   flex-grow: 1;
   flex-shrink: 1;
 
   @include mq(xs) {
-    font-size: $planner-font-size;
+    font-size: var(--planner-font-size);
   }
 }
 
@@ -97,10 +103,10 @@ $h: $planner-item-height;
   padding-bottom: 4px;
   text-overflow: ellipsis;
   line-height: 1.1;
-  font-size: $planner-font-size-smaller-mobile;
+  font-size: var(--planner-font-size-smaller-mobile);
 
   @include mq(xs) {
-    font-size: $planner-font-size-smaller;
+    font-size: var(--planner-font-size-smaller);
   }
 }
 
@@ -136,7 +142,7 @@ $h: $planner-item-height;
   height: 32px;
   margin-left: 4px;
   min-width: 32px;
-  z-index: $z-drag-handle;
+  z-index: var(--z-drag-handle);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -168,7 +174,7 @@ $h: $planner-item-height;
     width: 32px;
     height: 32px;
     min-width: 32px;
-    opacity: $task-icon-default-opacity;
+    opacity: var(--task-icon-default-opacity);
     position: absolute;
     display: flex;
     justify-content: center;
@@ -179,14 +185,14 @@ $h: $planner-item-height;
     }
 
     mat-icon {
-      margin-left: $s;
-      margin-right: $s;
+      margin-left: var(--s);
+      margin-right: var(--s);
       opacity: 0.8;
-      font-size: $planner-item-ico-size;
-      height: $planner-item-ico-size;
-      width: $planner-item-ico-size;
-      min-width: $planner-item-ico-size;
-      max-width: $planner-item-ico-size;
+      font-size: var(--planner-item-ico-size);
+      height: var(--planner-item-ico-size);
+      width: var(--planner-item-ico-size);
+      min-width: var(--planner-item-ico-size);
+      max-width: var(--planner-item-ico-size);
     }
 
     :host.isCurrent &::ng-deep mat-icon {
@@ -197,12 +203,10 @@ $h: $planner-item-height;
   }
 }
 
-$min-badge-size: 14px;
-
 .mini-badge {
-  line-height: $min-badge-size;
-  width: $min-badge-size;
-  height: $min-badge-size;
+  line-height: var(--mini-badge-size);
+  width: var(--mini-badge-size);
+  height: var(--mini-badge-size);
   font-size: 12px;
   position: absolute;
   right: 0;
@@ -223,17 +227,12 @@ $min-badge-size: 14px;
   line-height: 1;
   text-align: center;
   padding: 1px 2px 0;
-  border: 1px solid $light-theme-extra-border-color;
-  background: #fff;
-  border-radius: $card-border-radius;
+  border: 1px solid var(--extra-border-color);
+  border-radius: var(--card-border-radius);
 
   // avoid affecting drag handle
   pointer-events: none;
-
-  @include darkTheme() {
-    border-color: $dark-theme-extra-border-color;
-    background: $dark-theme-bg-lighter;
-  }
+  background: var(--bg-lighter);
 }
 
 .original-time-remaining {

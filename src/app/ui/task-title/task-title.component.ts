@@ -10,6 +10,8 @@ import {
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { T } from 'src/app/t.const';
 import { TranslateModule } from '@ngx-translate/core';
+import { IS_ANDROID_WEB_VIEW } from '../../util/is-android-web-view';
+import { Log } from '../../core/log';
 
 @Component({
   selector: 'task-title',
@@ -30,7 +32,7 @@ export class TaskTitleComponent {
     if (!this.isFocused && this.tmpValue !== this.lastExternalValue) {
       // NOTE: this works because set value is called after this, for non-short syntax only changes
       this.tmpValue = this.lastExternalValue;
-      console.log('new tmp', this.tmpValue);
+      Log.log('new tmp', this.tmpValue);
     }
   }
 
@@ -50,6 +52,7 @@ export class TaskTitleComponent {
   readonly valueEdited = output<{
     newVal: string;
     wasChanged: boolean;
+    blurEvent?: FocusEvent;
   }>();
 
   constructor() {}
@@ -63,14 +66,14 @@ export class TaskTitleComponent {
         el.selectionStart = el.selectionEnd = el.value.length;
       });
     } catch (e) {
-      console.warn(e);
+      Log.err(e);
     }
   }
 
-  blurred(): void {
+  blurred(event?: FocusEvent): void {
     this.isFocused = false;
     // this.isEditMode = false;
-    this._submit();
+    this._submit(event);
   }
 
   handleKeyDown(ev: KeyboardEvent): void {
@@ -85,8 +88,9 @@ export class TaskTitleComponent {
   }
 
   onTextInput(ev: Event): void {
-    if ((ev as InputEvent)?.data?.slice(-1) === '\n') {
-      console.log('android enter key press');
+    // TODO not really clear if this is needed. was apparently added to prevent the android web view enter key from submitting
+    if (IS_ANDROID_WEB_VIEW && (ev as InputEvent)?.data?.slice(-1) === '\n') {
+      Log.log('android enter key press');
       this._forceBlur();
       ev.preventDefault();
       setTimeout(() => {
@@ -96,22 +100,47 @@ export class TaskTitleComponent {
   }
 
   updateTmpValue(value: string): void {
-    this.tmpValue = value;
+    this.tmpValue = this._cleanValue(value);
+  }
+
+  handlePaste(event: ClipboardEvent): void {
+    event.preventDefault();
+
+    const pastedText = event.clipboardData?.getData('text/plain') || '';
+    const cleaned = this._cleanValue(pastedText);
+
+    const textarea = this.textarea().nativeElement;
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+
+    const currentVal = textarea.value;
+    const newVal = currentVal.slice(0, start) + cleaned + currentVal.slice(end);
+
+    // Update both textarea and tmpValue
+    textarea.value = newVal;
+    this.tmpValue = newVal;
+    this.updateTmpValue(newVal);
+
+    // Reset cursor position
+    requestAnimationFrame(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + cleaned.length;
+    });
   }
 
   private _forceBlur(): void {
     this.textarea().nativeElement.blur();
   }
 
-  private _submit(): void {
+  private _submit(blurEvent?: FocusEvent): void {
     const cleanVal = this._cleanValue(this.tmpValue);
     this.valueEdited.emit({
       newVal: cleanVal,
       wasChanged: cleanVal !== this.lastExternalValue,
+      blurEvent,
     });
   }
 
   private _cleanValue(value: string = ''): string {
-    return value?.replace(/\r\n|\n|\r/g, '').trim();
+    return value?.replace(/\n|\r/g, '').trim();
   }
 }

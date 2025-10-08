@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  effect,
   HostBinding,
   HostListener,
   inject,
@@ -8,23 +9,23 @@ import {
 } from '@angular/core';
 import { expandAnimation } from '../../../ui/animations/expand.ani';
 import { TaskCopy } from '../../tasks/task.model';
-import { Observable, of, Subject } from 'rxjs';
+import { from, Observable, of, Subject } from 'rxjs';
 import { GlobalConfigService } from '../../config/global-config.service';
 import { TaskService } from '../../tasks/task.service';
-import { first, map, switchMap, take, takeUntil, throttleTime } from 'rxjs/operators';
+import { first, switchMap, take, takeUntil } from 'rxjs/operators';
 import { TaskAttachmentService } from '../../tasks/task-attachment/task-attachment.service';
 import { fadeAnimation } from '../../../ui/animations/fade.ani';
 import { IssueService } from '../../issue/issue.service';
 import { Store } from '@ngrx/store';
 import {
-  selectFocusModeMode,
-  selectFocusSessionTimeElapsed,
-} from '../store/focus-mode.selectors';
-import { focusSessionDone, setFocusSessionActivePage } from '../store/focus-mode.actions';
-import { updateTask } from '../../tasks/store/task.actions';
+  completeTask,
+  selectFocusTask,
+  setFocusSessionDuration,
+} from '../store/focus-mode.actions';
+import { selectTimeDuration } from '../store/focus-mode.selectors';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { SimpleCounterService } from '../../simple-counter/simple-counter.service';
 import { SimpleCounter } from '../../simple-counter/simple-counter.model';
-import { FocusModeMode, FocusModePage } from '../focus-mode.const';
 import { ICAL_TYPE } from '../../issue/issue.const';
 import { TaskTitleComponent } from '../../../ui/task-title/task-title.component';
 import { ProgressCircleComponent } from '../../../ui/progress-circle/progress-circle.component';
@@ -41,6 +42,7 @@ import { SimpleCounterButtonComponent } from '../../simple-counter/simple-counte
 import { TaskAttachmentListComponent } from '../../tasks/task-attachment/task-attachment-list/task-attachment-list.component';
 import { slideInOutFromBottomAni } from '../../../ui/animations/slide-in-out-from-bottom.ani';
 import { FocusModeService } from '../focus-mode.service';
+import { BreathingDotComponent } from '../../../ui/breathing-dot/breathing-dot.component';
 
 @Component({
   selector: 'focus-mode-main',
@@ -51,6 +53,7 @@ import { FocusModeService } from '../focus-mode.service';
   imports: [
     TaskTitleComponent,
     ProgressCircleComponent,
+    BreathingDotComponent,
     MatIconButton,
     MatTooltip,
     MatIcon,
@@ -75,9 +78,8 @@ export class FocusModeMainComponent implements OnDestroy {
 
   focusModeService = inject(FocusModeService);
 
-  timeElapsed$ = this._store.select(selectFocusSessionTimeElapsed);
-  mode$ = this._store.select(selectFocusModeMode);
-  isCountTimeDown$ = this.mode$.pipe(map((mode) => mode !== FocusModeMode.Flowtime));
+  timeElapsed = this.focusModeService.timeElapsed;
+  isCountTimeDown = this.focusModeService.isCountTimeDown;
 
   @HostBinding('class.isShowNotes') isShowNotes: boolean = false;
 
@@ -94,38 +96,29 @@ export class FocusModeMainComponent implements OnDestroy {
         return of(null);
       }
       return v.issueType && v.issueId && v.issueProviderId
-        ? this._issueService.issueLink$(v.issueType, v.issueId, v.issueProviderId)
+        ? from(this._issueService.issueLink(v.issueType, v.issueId, v.issueProviderId))
         : of(null);
     }),
     take(1),
-  );
-
-  autoRationProgress$: Observable<number> = this.timeElapsed$.pipe(
-    map((timeElapsed) => {
-      const percentOfFullMinute = (timeElapsed % 60000) / 60000;
-      return percentOfFullMinute * 100;
-    }),
-    throttleTime(900),
   );
 
   private _onDestroy$ = new Subject<void>();
   private _dragEnterTarget?: HTMLElement;
 
   constructor() {
-    this._globalConfigService.misc$
-      .pipe(takeUntil(this._onDestroy$))
-      .subscribe((misc) => (this.defaultTaskNotes = misc.taskNotesTpl));
+    // Use effect to reactively update defaultTaskNotes
+    effect(() => {
+      const misc = this._globalConfigService.misc();
+      if (misc) {
+        this.defaultTaskNotes = misc.taskNotesTpl;
+      }
+    });
     this.taskService.currentTask$.pipe(takeUntil(this._onDestroy$)).subscribe((task) => {
       this.task = task;
+      if (!task) {
+        this._store.dispatch(selectFocusTask());
+      }
     });
-
-    this.taskService.currentTask$
-      .pipe(first(), takeUntil(this._onDestroy$))
-      .subscribe((task) => {
-        if (!task) {
-          this.taskService.startFirstStartable();
-        }
-      });
   }
 
   @HostListener('dragenter', ['$event']) onDragEnter(ev: DragEvent): void {
@@ -171,24 +164,24 @@ export class FocusModeMainComponent implements OnDestroy {
   }
 
   finishCurrentTask(): void {
-    this._store.dispatch(focusSessionDone({}));
-    this._store.dispatch(
-      updateTask({
-        task: {
-          id: this.task?.id as string,
-          changes: {
-            isDone: true,
-            doneOn: Date.now(),
-          },
-        },
-      }),
-    );
-  }
+    this._store.dispatch(completeTask());
+    // always go to task selection afterward
+    this._store.dispatch(selectFocusTask());
 
-  getProcrastinationHelp(): void {
-    this._store.dispatch(
-      setFocusSessionActivePage({ focusActivePage: FocusModePage.ProcrastinationHelp }),
-    );
+    const id = this.task && this.task.id;
+    if (id) {
+      this._store.dispatch(
+        TaskSharedActions.updateTask({
+          task: {
+            id,
+            changes: {
+              isDone: true,
+              doneOn: Date.now(),
+            },
+          },
+        }),
+      );
+    }
   }
 
   trackById(i: number, item: SimpleCounter): string {
@@ -202,6 +195,19 @@ export class FocusModeMainComponent implements OnDestroy {
       }
       this.taskService.update(this.task.id, { title: newTitle });
     }
+  }
+
+  extendSession(): void {
+    this._store
+      .select(selectTimeDuration)
+      .pipe(first())
+      .subscribe((currentDuration) => {
+        const fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const extendedDuration = currentDuration + fiveMinutesInMs;
+        this._store.dispatch(
+          setFocusSessionDuration({ focusSessionDuration: extendedDuration }),
+        );
+      });
   }
 
   protected readonly ICAL_TYPE = ICAL_TYPE;

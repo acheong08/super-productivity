@@ -15,16 +15,14 @@ import { DEFAULT_SIMPLE_COUNTERS } from '../simple-counter.const';
 import { arrayToDictionary } from '../../../util/array-to-dictionary';
 import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 import { updateAllInDictionary } from '../../../util/update-all-in-dictionary';
-import { migrateSimpleCounterState } from '../migrate-simple-counter-state.util';
 import { Update } from '@ngrx/entity/src/models';
-import { MODEL_VERSION_KEY } from '../../../app.constants';
-import { MODEL_VERSION } from '../../../core/model-version';
 import {
   addSimpleCounter,
   decreaseSimpleCounterCounterToday,
   deleteSimpleCounter,
   deleteSimpleCounters,
   increaseSimpleCounterCounterToday,
+  setSimpleCounterCounterForDate,
   setSimpleCounterCounterOff,
   setSimpleCounterCounterOn,
   setSimpleCounterCounterToday,
@@ -78,7 +76,6 @@ export const initialSimpleCounterState: SimpleCounterState =
   adapter.getInitialState<SimpleCounterState>({
     ids: DEFAULT_SIMPLE_COUNTERS.map((value) => value.id),
     entities: arrayToDictionary<SimpleCounter>(DEFAULT_SIMPLE_COUNTERS),
-    [MODEL_VERSION_KEY]: MODEL_VERSION.SIMPLE_COUNTER,
   });
 
 const disableIsOnForAll = (state: SimpleCounterState): SimpleCounterState => {
@@ -95,7 +92,7 @@ const _reducer = createReducer<SimpleCounterState>(
     appDataComplete.simpleCounter
       ? {
           // ...appDataComplete.simpleCounter,
-          ...migrateSimpleCounterState(disableIsOnForAll(appDataComplete.simpleCounter)),
+          ...disableIsOnForAll(appDataComplete.simpleCounter),
         }
       : oldState,
   ),
@@ -118,6 +115,21 @@ const _reducer = createReducer<SimpleCounterState>(
           countOnDay: {
             ...(state.entities[id] as SimpleCounter).countOnDay,
             [today]: newVal,
+          },
+        },
+      },
+      state,
+    ),
+  ),
+
+  on(setSimpleCounterCounterForDate, (state, { id, newVal, date }) =>
+    adapter.updateOne(
+      {
+        id,
+        changes: {
+          countOnDay: {
+            ...(state.entities[id] as SimpleCounter).countOnDay,
+            [date]: newVal,
           },
         },
       },

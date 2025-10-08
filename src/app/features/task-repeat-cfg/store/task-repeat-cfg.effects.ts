@@ -2,7 +2,6 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import {
   concatMap,
-  delay,
   filter,
   first,
   map,
@@ -12,127 +11,55 @@ import {
   tap,
   withLatestFrom,
 } from 'rxjs/operators';
-import { Action, select, Store } from '@ngrx/store';
 import {
   addTaskRepeatCfgToTask,
   deleteTaskRepeatCfg,
-  deleteTaskRepeatCfgs,
   updateTaskRepeatCfg,
-  updateTaskRepeatCfgs,
-  upsertTaskRepeatCfg,
 } from './task-repeat-cfg.actions';
-import { selectTaskRepeatCfgFeatureState } from './task-repeat-cfg.reducer';
 import { Task, TaskCopy } from '../../tasks/task.model';
-import { updateTask } from '../../tasks/store/task.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { TaskService } from '../../tasks/task.service';
 import { TaskRepeatCfgService } from '../task-repeat-cfg.service';
-import {
-  TaskRepeatCfg,
-  TaskRepeatCfgCopy,
-  TaskRepeatCfgState,
-} from '../task-repeat-cfg.model';
-import { forkJoin, from, merge, of } from 'rxjs';
-import { setActiveWorkContext } from '../../work-context/store/work-context.actions';
-import { SyncTriggerService } from '../../../imex/sync/sync-trigger.service';
-import { SyncWrapperService } from '../../../imex/sync/sync-wrapper.service';
-import { sortRepeatableTaskCfgs } from '../sort-repeatable-task-cfg';
+import { TaskRepeatCfgCopy } from '../task-repeat-cfg.model';
 import { MatDialog } from '@angular/material/dialog';
 import { DialogConfirmComponent } from '../../../ui/dialog-confirm/dialog-confirm.component';
 import { T } from '../../../t.const';
 import { Update } from '@ngrx/entity';
 import { getDateTimeFromClockString } from '../../../util/get-date-time-from-clock-string';
 import { isToday } from '../../../util/is-today.util';
-import { DateService } from 'src/app/core/date/date.service';
-import { deleteProject } from '../../project/store/project.actions';
-import { PfapiService } from '../../../pfapi/pfapi.service';
 import { TaskArchiveService } from '../../time-tracking/task-archive.service';
+import { Log } from '../../../core/log';
+import {
+  addSubTask,
+  moveSubTask,
+  moveSubTaskDown,
+  moveSubTaskToBottom,
+  moveSubTaskToTop,
+  moveSubTaskUp,
+} from '../../tasks/store/task.actions';
+import { EMPTY, forkJoin, from, Observable, of as rxOf } from 'rxjs';
 
 @Injectable()
 export class TaskRepeatCfgEffects {
   private _actions$ = inject(Actions);
   private _taskService = inject(TaskService);
-  private _store$ = inject<Store<any>>(Store);
-  private _pfapiService = inject(PfapiService);
-  private _dateService = inject(DateService);
   private _taskRepeatCfgService = inject(TaskRepeatCfgService);
-  private _syncTriggerService = inject(SyncTriggerService);
-  private _syncWrapperService = inject(SyncWrapperService);
   private _matDialog = inject(MatDialog);
   private _taskArchiveService = inject(TaskArchiveService);
 
-  updateTaskRepeatCfgs$: any = createEffect(
-    () =>
-      this._actions$.pipe(
-        ofType(
-          addTaskRepeatCfgToTask,
-          updateTaskRepeatCfg,
-          updateTaskRepeatCfgs,
-          upsertTaskRepeatCfg,
-          deleteTaskRepeatCfg,
-          deleteTaskRepeatCfgs,
-
-          // PROJECT
-          deleteProject,
-        ),
-        withLatestFrom(this._store$.pipe(select(selectTaskRepeatCfgFeatureState))),
-        tap(this._saveToLs.bind(this)),
-      ),
-    { dispatch: false },
-  );
-
-  private triggerRepeatableTaskCreation$ = merge(
-    this._syncTriggerService.afterInitialSyncDoneAndDataLoadedInitially$,
-    this._actions$.pipe(
-      ofType(setActiveWorkContext),
-      concatMap(() => this._syncWrapperService.afterCurrentSyncDoneOrSyncDisabled$),
-    ),
-  ).pipe(
-    // make sure everything has settled
-    delay(1000),
-  );
-
-  createRepeatableTasks: any = createEffect(() =>
-    this.triggerRepeatableTaskCreation$.pipe(
-      concatMap(
-        () =>
-          this._taskRepeatCfgService
-            .getRepeatTableTasksDueForDayIncludingOverdue$(
-              Date.now() - this._dateService.startOfNextDayDiff,
-            )
-            .pipe(first()),
-        // ===> taskRepeatCfgs scheduled for today and not yet created already
-      ),
-      filter((taskRepeatCfgs) => taskRepeatCfgs && !!taskRepeatCfgs.length),
-      withLatestFrom(this._taskService.currentTaskId$),
-
-      // existing tasks with sub-tasks are loaded, because need to move them to the archive
-      mergeMap(([taskRepeatCfgs, currentTaskId]) => {
-        // NOTE sorting here is important
-        const sorted = taskRepeatCfgs.sort(sortRepeatableTaskCfgs);
-        return from(sorted).pipe(
-          mergeMap((taskRepeatCfg: TaskRepeatCfg) =>
-            this._taskRepeatCfgService.getActionsForTaskRepeatCfg(
-              taskRepeatCfg,
-              Date.now() - this._dateService.startOfNextDayDiff,
-            ),
-          ),
-          concatMap((actionsForRepeatCfg) => from(actionsForRepeatCfg)),
-        );
-      }),
-    ),
-  );
-
-  removeConfigIdFromTaskStateTasks$: any = createEffect(() =>
+  removeConfigIdFromTaskStateTasks$ = createEffect(() =>
     this._actions$.pipe(
       ofType(deleteTaskRepeatCfg),
       concatMap(({ id }) => this._taskService.getTasksByRepeatCfgId$(id).pipe(take(1))),
       filter((tasks) => tasks && !!tasks.length),
       mergeMap((tasks: Task[]) =>
         tasks.map((task) =>
-          updateTask({
+          TaskSharedActions.updateTask({
             task: {
               id: task.id,
-              changes: { repeatCfgId: undefined },
+              changes: {
+                repeatCfgId: undefined,
+              },
             },
           }),
         ),
@@ -140,7 +67,7 @@ export class TaskRepeatCfgEffects {
     ),
   );
 
-  removeConfigIdFromTaskArchiveTasks$: any = createEffect(
+  removeConfigIdFromTaskArchiveTasks$ = createEffect(
     () =>
       this._actions$.pipe(
         ofType(deleteTaskRepeatCfg),
@@ -151,27 +78,234 @@ export class TaskRepeatCfgEffects {
     { dispatch: false },
   );
 
-  updateTaskAfterMakingItRepeatable$: any = createEffect(
+  updateTaskAfterMakingItRepeatable$ = createEffect(
     () =>
       this._actions$.pipe(
         ofType(addTaskRepeatCfgToTask),
         switchMap(({ taskRepeatCfg, taskId }) => {
-          return this._taskService.getByIdOnce$(taskId).pipe(
+          return this._taskService.getByIdWithSubTaskData$(taskId).pipe(
             first(),
-            map((task) => ({
-              task,
-              taskRepeatCfg,
-            })),
+            map((taskWithSubTasks) => {
+              // Extract subtasks safely, ensuring we handle the type properly
+              const subTasks = Array.isArray(taskWithSubTasks.subTasks)
+                ? taskWithSubTasks.subTasks
+                : [];
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { subTasks: _ignored, ...taskWithoutSubs } = taskWithSubTasks;
+
+              if (subTasks.length === 0) {
+                return {
+                  task: taskWithoutSubs,
+                  taskRepeatCfg,
+                  subTaskTemplates: [],
+                };
+              }
+
+              const subTaskTemplates = this._toSubTaskTemplates(subTasks);
+
+              return {
+                task: taskWithoutSubs,
+                taskRepeatCfg,
+                subTaskTemplates,
+              };
+            }),
           );
         }),
-        tap(({ task, taskRepeatCfg }) => {
+        tap(({ task, taskRepeatCfg, subTaskTemplates }) => {
+          this._taskRepeatCfgService.updateTaskRepeatCfg(taskRepeatCfg.id, {
+            subTaskTemplates,
+          });
           this._updateRegularTaskInstance(task, taskRepeatCfg, taskRepeatCfg);
         }),
       ),
     { dispatch: false },
   );
 
-  checkToUpdateAllTaskInstances: any = createEffect(
+  /**
+   * Auto-syncs subtask templates from the newest live instance when auto-update flag is enabled.
+   * Triggers on subtask operations like add, move, update, or delete.
+   */
+  autoSyncSubtaskTemplatesFromNewest$ = createEffect(
+    () =>
+      this._actions$.pipe(
+        ofType(
+          addSubTask,
+          moveSubTask,
+          moveSubTaskUp,
+          moveSubTaskDown,
+          moveSubTaskToTop,
+          moveSubTaskToBottom,
+          TaskSharedActions.updateTask,
+          TaskSharedActions.deleteTask,
+        ),
+        // Ignore delete for parent tasks (no need to sync after parent removed)
+        filter((action) => this._isRelevantSubtaskAction(action)),
+        // Only consider updates relevant to subtasks or parent content updates
+        switchMap((action) =>
+          this._resolveParentTaskFromAction(action).pipe(
+            first(),
+            switchMap((parent: Task | null) => {
+              if (!parent || !parent.repeatCfgId) {
+                return EMPTY;
+              }
+              const repeatCfgId = parent.repeatCfgId;
+              // Load config and verify flags
+              return this._taskRepeatCfgService.getTaskRepeatCfgById$(repeatCfgId).pipe(
+                first(),
+                switchMap((cfg) => {
+                  if (!cfg.shouldInheritSubtasks) {
+                    return EMPTY;
+                  }
+                  // auto-update is default unless explicitly disabled
+                  const isAutoEnabled = !cfg.disableAutoUpdateSubtasks;
+                  if (!isAutoEnabled) {
+                    return EMPTY;
+                  }
+                  // Ensure parent is the newest live instance
+                  return this._taskService.getTasksByRepeatCfgId$(repeatCfgId).pipe(
+                    first(),
+                    switchMap((liveInstances) => {
+                      if (!liveInstances || liveInstances.length === 0) {
+                        return EMPTY;
+                      }
+                      const newest = liveInstances.reduce((a, b) =>
+                        a.created > b.created ? a : b,
+                      );
+                      if (newest.id !== parent.id) {
+                        return EMPTY;
+                      }
+                      // Build templates from newest.subTaskIds order
+                      return rxOf({
+                        cfg,
+                        newest,
+                      } as {
+                        cfg: TaskRepeatCfgCopy;
+                        newest: Task;
+                      });
+                    }),
+                  );
+                }),
+              );
+            }),
+            filter((res): res is { cfg: TaskRepeatCfgCopy; newest: Task } => !!res),
+            switchMap(({ cfg, newest }) =>
+              this._taskService.getByIdsLive$(newest.subTaskIds).pipe(
+                first(),
+                map((subs) => ({ cfg, newest, subs })),
+              ),
+            ),
+            mergeMap(({ cfg, subs }) => {
+              const newTemplates = this._toSubTaskTemplates(subs || []);
+              if (this._templatesEqual(cfg.subTaskTemplates, newTemplates)) {
+                return EMPTY;
+              }
+              return rxOf(
+                updateTaskRepeatCfg({
+                  taskRepeatCfg: {
+                    id: cfg.id as string,
+                    changes: { subTaskTemplates: newTemplates },
+                  },
+                  isAskToUpdateAllTaskInstances: false,
+                }),
+              );
+            }),
+            filter((v): v is ReturnType<typeof updateTaskRepeatCfg> => !!v),
+          ),
+        ),
+      ),
+    { dispatch: true },
+  );
+
+  /**
+   * When enabling inherit subtasks in the dialog, immediately snapshots the subtasks
+   * from the newest instance to set initial templates.
+   */
+  enableAutoUpdateOrInheritSnapshot$ = createEffect(() =>
+    this._actions$.pipe(
+      ofType(updateTaskRepeatCfg),
+      // only react to enabling inherit subtasks; avoids loops
+      // Note: this snapshots current subtasks when inherit is enabled, regardless of auto-update flag
+      filter(({ taskRepeatCfg }) => {
+        const ch = taskRepeatCfg.changes as Partial<TaskRepeatCfgCopy>;
+        return ch.shouldInheritSubtasks === true;
+      }),
+      switchMap(({ taskRepeatCfg }) =>
+        this._taskRepeatCfgService.getTaskRepeatCfgById$(taskRepeatCfg.id as string).pipe(
+          first(),
+          switchMap((cfg) => {
+            const ch = taskRepeatCfg.changes as Partial<TaskRepeatCfgCopy>;
+            const shouldInherit =
+              ch.shouldInheritSubtasks !== undefined
+                ? ch.shouldInheritSubtasks
+                : cfg.shouldInheritSubtasks;
+            if (!shouldInherit) {
+              return EMPTY;
+            }
+            // Snapshot regardless of auto-update flag to set initial templates
+
+            const repeatCfgId = taskRepeatCfg.id as string;
+            // Try newest live first
+            return this._taskService.getTasksByRepeatCfgId$(repeatCfgId).pipe(
+              first(),
+              switchMap((liveInstances) => {
+                let newestLive: Task | null = null;
+                if (liveInstances && liveInstances.length) {
+                  newestLive = liveInstances.reduce((a, b) =>
+                    a.created > b.created ? a : b,
+                  );
+                }
+
+                if (newestLive) {
+                  return this._taskService.getByIdsLive$(newestLive.subTaskIds).pipe(
+                    first(),
+                    map((subs) => ({ cfg, subs })),
+                  );
+                }
+
+                // fallback to archive
+                return from(
+                  this._taskService.getArchiveTasksForRepeatCfgId(repeatCfgId),
+                ).pipe(
+                  switchMap((arch) => {
+                    if (!arch || arch.length === 0) {
+                      return rxOf({ cfg, subs: [] as Task[] });
+                    }
+                    const newest = arch.reduce((a, b) => (a.created > b.created ? a : b));
+                    return from(this._taskArchiveService.load()).pipe(
+                      map((archiveState) => {
+                        const subs = newest.subTaskIds
+                          .map((id) => archiveState.entities[id])
+                          .filter(Boolean) as unknown as Task[];
+                        return { cfg, subs };
+                      }),
+                    );
+                  }),
+                );
+              }),
+              mergeMap(({ cfg: config, subs }) => {
+                const newTemplates = this._toSubTaskTemplates(subs || []);
+                if (this._templatesEqual(config.subTaskTemplates, newTemplates)) {
+                  return EMPTY;
+                }
+                return rxOf(
+                  updateTaskRepeatCfg({
+                    taskRepeatCfg: {
+                      id: config.id as string,
+                      changes: { subTaskTemplates: newTemplates },
+                    },
+                    isAskToUpdateAllTaskInstances: false,
+                  }),
+                );
+              }),
+              filter((v): v is ReturnType<typeof updateTaskRepeatCfg> => !!v),
+            );
+          }),
+        ),
+      ),
+    ),
+  );
+
+  checkToUpdateAllTaskInstances$ = createEffect(
     () =>
       this._actions$.pipe(
         ofType(updateTaskRepeatCfg),
@@ -179,14 +313,14 @@ export class TaskRepeatCfgEffects {
         concatMap(({ taskRepeatCfg }) => {
           const id = taskRepeatCfg.id as string;
           return forkJoin([
-            of(taskRepeatCfg),
+            rxOf(taskRepeatCfg),
             this._taskService.getTasksByRepeatCfgId$(id).pipe(first()),
             this._taskService.getArchiveTasksForRepeatCfgId(id),
           ]);
         }),
         concatMap(([{ id, changes }, todayTasks, archiveTasks]) => {
           if (todayTasks.length + archiveTasks.length === 0) {
-            return of(false);
+            return rxOf(false);
           }
           // NOTE: there will always be at least on instance, since we're editing it
           return this._matDialog
@@ -206,8 +340,8 @@ export class TaskRepeatCfgEffects {
               ),
               tap(([isConfirm, completeCfg]) => {
                 if (isConfirm) {
-                  console.log(changes);
-                  console.log(todayTasks, archiveTasks);
+                  Log.log(changes);
+                  Log.log(todayTasks, archiveTasks);
                   // NOTE: keep in mind that it's very likely that there will be only one task for today
                   // TODO update reminders if given
                   todayTasks.forEach((task) =>
@@ -247,7 +381,7 @@ export class TaskRepeatCfgEffects {
                     ) {
                       changesForArchiveTask.timeEstimate = changes.defaultEstimate;
                     }
-                    console.log('updateArchiveTask', changesForArchiveTask);
+                    Log.log('updateArchiveTask', changesForArchiveTask);
                     return { id: task.id, changes: changesForArchiveTask };
                   });
                   this._taskService.updateArchiveTasks(archiveUpdates);
@@ -288,7 +422,7 @@ export class TaskRepeatCfgEffects {
       if (task.reminderId) {
         this._taskService.reScheduleTask({
           task,
-          plannedAt: dateTime,
+          due: dateTime,
           remindCfg: completeCfg.remindAt,
           isMoveToBacklog: false,
         });
@@ -320,9 +454,76 @@ export class TaskRepeatCfgEffects {
     }
   }
 
-  private _saveToLs([action, taskRepeatCfgState]: [Action, TaskRepeatCfgState]): void {
-    this._pfapiService.m.taskRepeatCfg.save(taskRepeatCfgState, {
-      isUpdateRevAndLastUpdate: true,
-    });
+  private _templatesEqual(
+    a: TaskRepeatCfgCopy['subTaskTemplates'] | undefined,
+    b: NonNullable<TaskRepeatCfgCopy['subTaskTemplates']>,
+  ): boolean {
+    const aArr = a || [];
+    if (aArr.length !== b.length) {
+      return false;
+    }
+    for (let i = 0; i < aArr.length; i++) {
+      const ai = aArr[i];
+      const bi = b[i];
+      if (
+        ai.title !== bi.title ||
+        (ai.notes || '') !== (bi.notes || '') ||
+        (ai.timeEstimate || 0) !== (bi.timeEstimate || 0)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Determines if an action is relevant for subtask template syncing
+   */
+  private _isRelevantSubtaskAction(action: any): boolean {
+    if (action.type === TaskSharedActions.deleteTask.type) {
+      const task = action.task as Task | undefined;
+      return !!task && !!task.parentId;
+    }
+    return true;
+  }
+
+  /**
+   * Resolves the parent task from an action that might affect subtasks
+   */
+  private _resolveParentTaskFromAction(action: any): Observable<Task | null> {
+    const parentId: string | undefined = action.parentId || action.srcTaskId;
+    const updatedTaskId: string | undefined = action.task?.id || action.id;
+
+    if (!parentId && !updatedTaskId) {
+      return EMPTY;
+    }
+
+    // Resolve the parent: if parentId given use it, else try to get parent via updated task
+    const resolveParent$ = parentId
+      ? this._taskService.getByIdOnce$(parentId)
+      : updatedTaskId
+        ? this._taskService
+            .getByIdOnce$(updatedTaskId as string)
+            .pipe(
+              switchMap((t) =>
+                t && t.parentId ? this._taskService.getByIdOnce$(t.parentId) : rxOf(null),
+              ),
+            )
+        : rxOf(null);
+
+    return resolveParent$;
+  }
+
+  /**
+   * Converts tasks to subtask templates with only essential fields
+   */
+  private _toSubTaskTemplates(
+    subs: Task[],
+  ): NonNullable<TaskRepeatCfgCopy['subTaskTemplates']> {
+    return subs.map((st) => ({
+      title: st.title,
+      notes: st.notes,
+      timeEstimate: st.timeEstimate,
+    }));
   }
 }

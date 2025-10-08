@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { EMPTY, Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { Task, TaskCopy } from '../../../tasks/task.model';
 import { IssueServiceInterface } from '../../issue-service-interface';
 import {
@@ -28,18 +28,18 @@ export class CalendarCommonInterfacesService implements IssueServiceInterface {
   }
 
   // We currently don't support polling for calendar events
-  pollTimer$: Observable<number> = EMPTY;
+  pollInterval: number = 0;
 
-  issueLink$(issueId: number, issueProviderId: string): Observable<string> {
-    return of('NONE');
+  issueLink(issueId: number, issueProviderId: string): Promise<string> {
+    return Promise.resolve('NONE');
   }
 
-  testConnection$(cfg: CalendarProviderCfg): Observable<boolean> {
-    return this._calendarIntegrationService.testConnection$(cfg);
+  testConnection(cfg: CalendarProviderCfg): Promise<boolean> {
+    return this._calendarIntegrationService.testConnection(cfg);
   }
 
-  getById$(id: number, issueProviderId: string): Observable<IssueData | null> {
-    return of(null);
+  getById(id: number, issueProviderId: string): Promise<IssueData | null> {
+    return Promise.resolve(null);
   }
 
   getAddTaskData(
@@ -54,32 +54,35 @@ export class CalendarCommonInterfacesService implements IssueServiceInterface {
       notes: calEv.description || '',
       issueWasUpdated: false,
       issueLastUpdated: new Date().getTime(),
-      plannedAt: calEv.start,
+      dueWithTime: calEv.start,
     };
   }
 
-  searchIssues$(query: string, issueProviderId: string): Observable<SearchResultItem[]> {
-    return this._getCfgOnce$(issueProviderId).pipe(
-      switchMap((cfg) =>
-        this._calendarIntegrationService.requestEventsForSchedule$(cfg, true),
-      ),
-      map((calEvents) =>
-        calEvents
-          .filter((calEvent) =>
-            calEvent.title.toLowerCase().includes(query.toLowerCase()),
-          )
-          .map((calEvent) => ({
-            title: calEvent.title,
-            issueType: ICAL_TYPE,
-            issueData: calEvent,
-          })),
-      ),
-    );
+  searchIssues(query: string, issueProviderId: string): Promise<SearchResultItem[]> {
+    return this._getCfgOnce$(issueProviderId)
+      .pipe(
+        switchMap((cfg) =>
+          this._calendarIntegrationService.requestEventsForSchedule$(cfg, true),
+        ),
+        map((calEvents) =>
+          calEvents
+            .filter((calEvent) =>
+              calEvent.title.toLowerCase().includes(query.toLowerCase()),
+            )
+            .map((calEvent) => ({
+              title: calEvent.title,
+              issueType: ICAL_TYPE,
+              issueData: calEvent,
+            })),
+        ),
+      )
+      .toPromise()
+      .then((result) => result ?? []);
   }
 
   async getFreshDataForIssueTask(task: Task): Promise<{
     taskChanges: Partial<Task>;
-    issue: any;
+    issue: IssueData;
     issueTitle: string;
   } | null> {
     return null;
@@ -89,7 +92,7 @@ export class CalendarCommonInterfacesService implements IssueServiceInterface {
     {
       task: Readonly<Task>;
       taskChanges: Partial<Readonly<Task>>;
-      issue: any;
+      issue: IssueData;
     }[]
   > {
     return [];

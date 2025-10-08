@@ -2,10 +2,8 @@ import { createFeature, createReducer, on } from '@ngrx/store';
 import { IssueProvider, IssueProviderState } from '../issue.model';
 import { IssueProviderActions } from './issue-provider.actions';
 import { createEntityAdapter, EntityAdapter } from '@ngrx/entity';
-import { MODEL_VERSION_KEY } from '../../../app.constants';
 import { loadAllData } from '../../../root-store/meta/load-all-data.action';
-import { migrateIssueProviderState } from '../migrate-issue-providers';
-import { deleteProject } from '../../project/store/project.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 
 export const ISSUE_PROVIDER_FEATURE_KEY = 'issueProvider';
 
@@ -13,7 +11,6 @@ export const adapter: EntityAdapter<IssueProvider> = createEntityAdapter<IssuePr
 
 export const issueProviderInitialState: IssueProviderState = adapter.getInitialState({
   ids: [] as string[],
-  [MODEL_VERSION_KEY]: 0,
   // additional entity state properties
 });
 
@@ -23,11 +20,9 @@ export const issueProviderReducer = createReducer(
   // META ACTIONS
   // ------------
   on(loadAllData, (oldState, { appDataComplete }) =>
-    appDataComplete.issueProvider
-      ? migrateIssueProviderState({ ...appDataComplete.issueProvider })
-      : oldState,
+    appDataComplete.issueProvider ? appDataComplete.issueProvider : oldState,
   ),
-  on(deleteProject, (state, { project }) =>
+  on(TaskSharedActions.deleteProject, (state, { project }) =>
     adapter.updateMany(
       state.ids
         .map((id) => state.entities[id])

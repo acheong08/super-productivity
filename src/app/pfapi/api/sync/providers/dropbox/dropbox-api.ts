@@ -12,9 +12,10 @@ import {
   RemoteFileNotFoundAPIError,
   TooManyRequestsAPIError,
 } from '../../../errors/errors';
-import { pfLog } from '../../../util/log';
+import { PFLog } from '../../../../../core/log';
 import { SyncProviderServiceInterface } from '../../sync-provider.interface';
 import { SyncProviderId } from '../../../pfapi.const';
+import { tryCatchInlineAsync } from '../../../../../util/try-catch-inline';
 
 interface DropboxApiOptions {
   method: HttpMethod;
@@ -38,6 +39,8 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTION
  * API class for Dropbox integration
  */
 export class DropboxApi {
+  private static readonly L = 'DropboxApi';
+
   constructor(
     private _appKey: string,
     private _parent: SyncProviderServiceInterface<SyncProviderId.Dropbox>,
@@ -57,13 +60,15 @@ export class DropboxApi {
         url: 'https://api.dropboxapi.com/2/files/get_metadata',
         headers: {
           'Content-Type': 'application/json',
-          ...(localRev ? { 'If-None-Match': localRev } : {}),
+          // NOTE: Dropbox ignores If-None-Match for metadata requests
+          // We keep localRev parameter for API consistency but don't use it
+          // ...(localRev ? { 'If-None-Match': localRev } : {}),
         },
         data: { path },
       });
       return response.json();
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}.getMetaData() error for path: ${path}`, e);
+      PFLog.critical(`${DropboxApi.L}.getMetaData() error for path: ${path}`, e);
       this._checkCommonErrors(e, path);
       throw e;
     }
@@ -71,13 +76,15 @@ export class DropboxApi {
 
   /**
    * Download a file from Dropbox
+   *
+   * NOTE: We don't use If-None-Match for downloads to ensure we always get content
+   * when requested. Future optimization could implement caching and handle 304 responses,
+   * but current sync architecture expects actual data from downloadFile() calls.
    */
   async download<T>({
     path,
-    localRev,
   }: {
     path: string;
-    localRev?: string | null;
   }): Promise<{ meta: DropboxFileMetadata; data: T }> {
     try {
       const response = await this._request({
@@ -86,7 +93,7 @@ export class DropboxApi {
         headers: {
           'Dropbox-API-Arg': JSON.stringify({ path }),
           'Content-Type': 'application/octet-stream',
-          ...(localRev ? { 'If-None-Match': localRev } : {}),
+          // Don't send If-None-Match - always download full content
         },
       });
 
@@ -104,7 +111,7 @@ export class DropboxApi {
 
       return { meta, data: data as unknown as T };
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}.download() error for path: ${path}`, e);
+      PFLog.critical(`${DropboxApi.L}.download() error for path: ${path}`, e);
       this._checkCommonErrors(e, path);
       throw e;
     }
@@ -133,7 +140,8 @@ export class DropboxApi {
     if (!isForceOverwrite) {
       args.mode = revToMatch
         ? ({ '.tag': 'update', update: revToMatch } as any)
-        : { '.tag': 'update', update: '01630c96b4d421c00000001ce2a2770' };
+        : // TODO why is update hardcoded????
+          { '.tag': 'update', update: '01630c96b4d421c00000001ce2a2770' };
     }
 
     try {
@@ -147,7 +155,8 @@ export class DropboxApi {
         },
       });
 
-      const result = await response.json();
+      // with 429 response (Too many request) json is already parsed (sometimes?)
+      const result = await tryCatchInlineAsync(() => response.json(), response);
 
       if (!result.rev) {
         throw new NoRevAPIError();
@@ -155,7 +164,7 @@ export class DropboxApi {
 
       return result;
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}.upload() error for path: ${path}`, e);
+      PFLog.critical(`${DropboxApi.L}.upload() error for path: ${path}`, e);
       this._checkCommonErrors(e, path);
       throw e;
     }
@@ -174,7 +183,7 @@ export class DropboxApi {
       });
       return response.json();
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}.remove() error for path: ${path}`, e);
+      PFLog.critical(`${DropboxApi.L}.remove() error for path: ${path}`, e);
       this._checkCommonErrors(e, path);
       throw e;
     }
@@ -197,7 +206,7 @@ export class DropboxApi {
       });
       return response.json();
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}.checkUser() error`, e);
+      PFLog.critical(`${DropboxApi.L}.checkUser() error`, e);
       this._checkCommonErrors(e, 'check/user');
       throw e;
     }
@@ -207,13 +216,13 @@ export class DropboxApi {
    * Refresh access token using refresh token
    */
   async updateAccessTokenFromRefreshTokenIfAvailable(): Promise<void> {
-    pfLog(2, `${DropboxApi.name}.updateAccessTokenFromRefreshTokenIfAvailable()`);
+    PFLog.normal(`${DropboxApi.L}.updateAccessTokenFromRefreshTokenIfAvailable()`);
 
     const privateCfg = await this._parent.privateCfg.load();
     const refreshToken = privateCfg?.refreshToken;
 
     if (!refreshToken) {
-      pfLog(0, 'Dropbox: No refresh token available');
+      PFLog.critical('Dropbox: No refresh token available');
       throw new MissingRefreshTokenAPIError();
     }
 
@@ -235,14 +244,14 @@ export class DropboxApi {
       }
 
       const data = (await response.json()) as TokenResponse;
-      pfLog(2, 'Dropbox: Refresh access token Response', data);
+      PFLog.normal('Dropbox: Refresh access token Response', data);
 
-      await this._parent.privateCfg.save({
+      await this._parent.privateCfg.updatePartial({
         accessToken: data.access_token,
         refreshToken: data.refresh_token || privateCfg?.refreshToken,
       });
     } catch (e) {
-      pfLog(0, 'Failed to refresh Dropbox access token', e);
+      PFLog.critical('Failed to refresh Dropbox access token', e);
       throw e;
     }
   }
@@ -296,7 +305,7 @@ export class DropboxApi {
         expiresAt: +data.expires_in * 1000 + Date.now(),
       };
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}.getTokensFromAuthCode() error`, e);
+      PFLog.critical(`${DropboxApi.L}.getTokensFromAuthCode() error`, e);
       throw e;
     }
   }
@@ -386,7 +395,7 @@ export class DropboxApi {
 
       return response;
     } catch (e) {
-      pfLog(0, `${DropboxApi.name}._request() error for ${url}`, e);
+      PFLog.critical(`${DropboxApi.L}._request() error for ${url}`, e);
       this._checkCommonErrors(e, url);
       throw e;
     }
@@ -459,7 +468,7 @@ export class DropboxApi {
     return new Promise((resolve, reject) => {
       setTimeout(
         () => {
-          pfLog(2, `Too many requests ${path}, retrying in ${retryAfter}s...`);
+          PFLog.normal(`Too many requests ${path}, retrying in ${retryAfter}s...`);
           originalRequestExecutor().then(resolve).catch(reject);
         },
         (retryAfter + EXTRA_WAIT) * 1000,

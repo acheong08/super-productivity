@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import {
   MAT_DIALOG_DATA,
   MatDialogActions,
   MatDialogContent,
   MatDialogRef,
+  MatDialogTitle,
 } from '@angular/material/dialog';
 import { T } from '../../t.const';
 import { MatButton } from '@angular/material/button';
@@ -15,17 +16,23 @@ import { TranslatePipe } from '@ngx-translate/core';
   templateUrl: './dialog-confirm.component.html',
   styleUrls: ['./dialog-confirm.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatDialogContent, MatDialogActions, MatButton, MatIcon, TranslatePipe],
+  imports: [
+    MatDialogContent,
+    MatDialogActions,
+    MatButton,
+    MatIcon,
+    TranslatePipe,
+    MatDialogTitle,
+  ],
 })
 export class DialogConfirmComponent {
-  @ViewChild('cancelButton', { read: MatButton }) cancelButton!: MatButton;
-  @ViewChild('confirmButton', { read: MatButton }) confirmButton!: MatButton;
-  private _matDialogRef = inject<MatDialogRef<DialogConfirmComponent>>(MatDialogRef);
-  data = inject(MAT_DIALOG_DATA);
+  private readonly _matDialogRef =
+    inject<MatDialogRef<DialogConfirmComponent>>(MatDialogRef);
+  readonly data = inject(MAT_DIALOG_DATA);
 
-  T: typeof T = T;
+  readonly T: typeof T = T;
 
-  close(res: any): void {
+  close(res: boolean | string | undefined): void {
     this._matDialogRef.close(res);
   }
 

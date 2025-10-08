@@ -1,11 +1,10 @@
 import { casual } from 'chrono-node';
 import { Task, TaskCopy } from './task.model';
-import { getWorklogStr } from '../../util/get-work-log-str';
+import { getDbDateStr } from '../../util/get-db-date-str';
 import { stringToMs } from '../../ui/duration/string-to-ms.pipe';
 import { Tag } from '../tag/tag.model';
 import { Project } from '../project/project.model';
 import { ShortSyntaxConfig } from '../config/global-config.model';
-
 type ProjectChanges = {
   title?: string;
   projectId?: string;
@@ -16,7 +15,7 @@ type TagChanges = {
 };
 type DueChanges = {
   title?: string;
-  plannedAt?: number;
+  dueWithTime?: number;
 };
 
 const SHORT_SYNTAX_TIME_REG_EX =
@@ -67,7 +66,13 @@ customDateParser.refiners.push({
   },
 });
 
-const SHORT_SYNTAX_PROJECT_REG_EX = new RegExp(`\\${CH_PRO}[^${ALL_SPECIAL}]+`, 'gi');
+// The following project name extraction pattern attempts to improve on the
+// previous version by not immediately terminating upon encountering a short
+// syntax delimiting character and looks ahead to consider usage context
+const SHORT_SYNTAX_PROJECT_REG_EX = new RegExp(
+  `\\${CH_PRO}((?:(?!\\s+(?:\\${CH_TAG}|\\${CH_DUE}|t?\\d+[mh]\\b)).)+)`,
+  'i',
+);
 const SHORT_SYNTAX_TAGS_REG_EX = new RegExp(`\\${CH_TAG}[^${ALL_SPECIAL}|\\s]+`, 'gi');
 
 // Literal notation: /\@[^\+|\#|\@]/gi
@@ -199,7 +204,10 @@ const parseProjectChanges = (
 
     if (existingProject) {
       return {
-        title: task.title?.replace(`${CH_PRO}${projectTitle}`, '').trim(),
+        title: task.title
+          ?.replace(`${CH_PRO}${projectTitle}`, '')
+          .trim()
+          .replace('  ', ' '),
         projectId: existingProject.id,
       };
     }
@@ -285,15 +293,15 @@ const parseTagChanges = (task: Partial<TaskCopy>, allTags?: Tag[]): TagChanges =
         taskChanges.title = taskChanges.title.trim();
       }
 
-      // console.log(task.title);
-      // console.log('newTagTitles', regexTagTitles);
-      // console.log('newTagTitlesTrimmed', regexTagTitlesTrimmedAndFiltered);
-      // console.log('allTags)', allTags.map(tag => `${tag.id}: ${tag.title}`));
-      // console.log('task.tagIds', task.tagIds);
-      // console.log('task.title', task.title);
+      // TaskLog.log(task.title);
+      // TaskLog.log('newTagTitles', regexTagTitles);
+      // TaskLog.log('newTagTitlesTrimmed', regexTagTitlesTrimmedAndFiltered);
+      // TaskLog.log('allTags)', allTags.map(tag => `${tag.id}: ${tag.title}`));
+      // TaskLog.log('task.tagIds', task.tagIds);
+      // TaskLog.log('task.title', task.title);
     }
   }
-  // console.log(taskChanges);
+  // TaskLog.log(taskChanges);
 
   return {
     taskChanges,
@@ -308,14 +316,14 @@ const parseScheduledDate = (task: Partial<TaskCopy>, now: Date): DueChanges => {
   const rr = task.title.match(SHORT_SYNTAX_DUE_REG_EX);
 
   if (rr && rr[0]) {
-    const parsedDateArr = customDateParser.parse(task.title, now, {
+    const parsedDateArr = customDateParser.parse(rr[0], now, {
       forwardDate: true,
     });
 
     if (parsedDateArr.length) {
       const parsedDateResult = parsedDateArr[0];
       const start = parsedDateResult.start;
-      const plannedAt = start.date().getTime();
+      const due = start.date().getTime();
       let hasPlannedTime = true;
       // If user doesn't explicitly enter time, set the scheduled date
       // to 9:00:00 of the given day
@@ -331,7 +339,7 @@ const parseScheduledDate = (task: Partial<TaskCopy>, now: Date): DueChanges => {
         inputDate += 'm';
       }
       return {
-        plannedAt,
+        dueWithTime: due,
         // Strip out the short syntax for scheduled date and given date
         title: task.title.replace(`@${inputDate}`, ''),
         ...(hasPlannedTime ? {} : { hasPlannedTime: false }),
@@ -342,10 +350,23 @@ const parseScheduledDate = (task: Partial<TaskCopy>, now: Date): DueChanges => {
     if (simpleMatch && simpleMatch[0] && typeof +simpleMatch[0] === 'number') {
       const nr = +simpleMatch[0];
       if (nr <= 24) {
-        const plannedAt = new Date();
-        plannedAt.setHours(nr, 0, 0, 0);
+        const due = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          nr,
+          0,
+          0,
+          0,
+        );
+
+        // If the scheduled time has already passed today, schedule for tomorrow
+        if (due.getTime() <= now.getTime()) {
+          due.setDate(due.getDate() + 1);
+        }
+
         return {
-          plannedAt: plannedAt.getTime(),
+          dueWithTime: due.getTime(),
           title: task.title.replace(`@${nr}`, ''),
         };
       }
@@ -372,7 +393,7 @@ const parseTimeSpentChanges = (task: Partial<TaskCopy>): Partial<Task> => {
         ? {
             timeSpentOnDay: {
               ...(task.timeSpentOnDay || {}),
-              [getWorklogStr()]: stringToMs(timeSpent),
+              [getDbDateStr()]: stringToMs(timeSpent),
             },
           }
         : {}),

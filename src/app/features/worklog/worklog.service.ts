@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, LOCALE_ID } from '@angular/core';
 import {
   Worklog,
   WorklogDay,
@@ -28,12 +28,12 @@ import { getCompleteStateForWorkContext } from './util/get-complete-state-for-wo
 import { NavigationEnd, Router } from '@angular/router';
 import { WorklogTask } from '../tasks/task.model';
 import { mapArchiveToWorklogWeeks } from './util/map-archive-to-worklog-weeks';
-import moment from 'moment';
 import { DateAdapter } from '@angular/material/core';
 import { PfapiService } from '../../pfapi/pfapi.service';
 import { DataInitStateService } from '../../core/data-init/data-init-state.service';
 import { TimeTrackingService } from '../time-tracking/time-tracking.service';
 import { TaskArchiveService } from '../time-tracking/task-archive.service';
+import { getDbDateStr } from '../../util/get-db-date-str';
 
 @Injectable({ providedIn: 'root' })
 export class WorklogService {
@@ -45,6 +45,7 @@ export class WorklogService {
   private readonly _router = inject(Router);
   private _dateAdapter = inject<DateAdapter<unknown>>(DateAdapter);
   private _taskArchiveService = inject(TaskArchiveService);
+  private _locale = inject(LOCALE_ID);
 
   // treated as private but needs to be assigned first
   archiveUpdateManualTrigger$: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(
@@ -175,15 +176,19 @@ export class WorklogService {
   ): Observable<WorklogTask[]> {
     const isProjectIdProvided: boolean = !!projectId || projectId === null;
 
+    // Convert date range to date strings for timezone-safe comparison
+    const rangeStartStr = getDbDateStr(rangeStart);
+    const rangeEndStr = getDbDateStr(rangeEnd);
+
     return this.worklogTasks$.pipe(
       map((tasks) => {
         tasks = tasks.filter((task: WorklogTask) => {
-          // NOTE: we need to use moment here as otherwise the dates might be off for other time zones
-          const taskDate = moment(task.dateStr).toDate();
+          // Use date string comparison instead of Date object comparison
+          // to avoid timezone issues
           return (
             (!isProjectIdProvided || task.projectId === projectId) &&
-            taskDate >= rangeStart &&
-            taskDate <= rangeEnd
+            task.dateStr >= rangeStartStr &&
+            task.dateStr <= rangeEndStr
           );
         });
 
@@ -191,10 +196,9 @@ export class WorklogService {
           tasks = tasks.map((task): WorklogTask => {
             const timeSpentOnDay: any = {};
             Object.keys(task.timeSpentOnDay).forEach((dateStr) => {
-              // NOTE: we need to use moment here as otherwise the dates might be off for other time zones
-              const date = moment(dateStr).toDate();
-
-              if (date >= rangeStart && date <= rangeEnd) {
+              // Use date string comparison instead of Date object comparison
+              // to avoid timezone issues
+              if (dateStr >= rangeStartStr && dateStr <= rangeEndStr) {
                 timeSpentOnDay[dateStr] = task.timeSpentOnDay[dateStr];
               }
             });
@@ -233,6 +237,7 @@ export class WorklogService {
         nonArchiveTaskIds,
         workStartEndForWorkContext,
         this._dateAdapter.getFirstDayOfWeek(),
+        this._locale,
       );
       return {
         worklog,
@@ -267,6 +272,7 @@ export class WorklogService {
         nonArchiveTaskIds,
         workStartEndForWorkContext,
         this._dateAdapter.getFirstDayOfWeek(),
+        this._locale,
       );
     }
     return null;

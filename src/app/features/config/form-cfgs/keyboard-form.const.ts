@@ -77,7 +77,7 @@ export const KEYBOARD_SETTINGS_FORM_CFG: ConfigFormSection<KeyboardConfig> = {
       },
     },
     {
-      key: 'toggleSideNav',
+      key: 'focusSideNav',
       type: 'keyboard',
       templateOptions: {
         label: T.GCF.KEYBOARD.TOGGLE_SIDE_NAV,
@@ -88,6 +88,13 @@ export const KEYBOARD_SETTINGS_FORM_CFG: ConfigFormSection<KeyboardConfig> = {
       type: 'keyboard',
       templateOptions: {
         label: T.GCF.KEYBOARD.OPEN_PROJECT_NOTES,
+      },
+    },
+    {
+      key: 'toggleTaskViewCustomizerPanel',
+      type: 'keyboard',
+      templateOptions: {
+        label: T.GCF.KEYBOARD.TOGGLE_TASK_VIEW_CUSTOMIZER_PANEL,
       },
     },
     {
@@ -345,7 +352,7 @@ export const KEYBOARD_SETTINGS_FORM_CFG: ConfigFormSection<KeyboardConfig> = {
       key: 'moveToTodaysTasks',
       type: 'keyboard',
       templateOptions: {
-        label: T.GCF.KEYBOARD.MOVE_TO_TODAYS_TASKS,
+        label: T.GCF.KEYBOARD.MOVE_TO_REGULARS_TASKS,
       },
     },
     {

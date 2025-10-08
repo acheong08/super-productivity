@@ -1,30 +1,40 @@
-<better-drawer-container
-  (wasClosed)="close()"
-  [isOpen]="isOpen$ | async"
-  [isOver]="isAlwaysOver() || (layoutService.isRightPanelOver$ | async)"
-  [sideWidth]="40"
->
-  <ng-container better-drawer-content>
-    <ng-content></ng-content>
-  </ng-container>
-
-  <ng-container better-drawer-side>
-    @let panelContent = panelContent$ | async;
+<div class="content">
+  <ng-content></ng-content>
+</div>
+@if (isOpen()) {
+  <div
+    swipeGesture
+    (swiperight)="IS_TOUCH_PRIMARY && close()"
+    [style]="sideStyle()"
+    class="side"
+    @slideRightPanel
+  >
     <div class="right-panel">
-      @if (panelContent === 'ADD_TASK_PANEL') {
-        <issue-panel [@slideInFromRight]></issue-panel>
-      }
-      @if (panelContent === 'NOTES') {
-        <notes [@slideInFromRight]></notes>
-      }
-      @if (selectedTaskWithDelayForNone$ | async; as selectedTaskWithDelayForNone) {
-        <task-detail-panel
-          [isOver]="isAlwaysOver() || (layoutService.isRightPanelOver$ | async)"
-          [@taskDetailPanelTaskChange]="selectedTaskWithDelayForNone?.id"
-          [@.disabled]="isDisableTaskPanelAni"
-          [task]="selectedTaskWithDelayForNone"
-        ></task-detail-panel>
-      }
+      <!-- Resize Handle -->
+      <div
+        class="resize-handle"
+        (pointerdown)="onResizePointerDown($event)"
+        [attr.aria-label]="'Resize right panel'"
+        role="separator"
+      ></div>
+      <button
+        class="edge-close-handle tour-edge-close-handle"
+        role="button"
+        tabindex="0"
+        [attr.aria-label]="'Close right panel or drag to resize'"
+        (pointerdown)="onCloseButtonPointerDown($event)"
+        (pointerup)="onCloseButtonPointerUp($event)"
+        (keydown.enter)="close()"
+      >
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+
+      <div
+        class="side-inner"
+        [style.min-width.px]="panelWidth()"
+      >
+        <right-panel-content></right-panel-content>
+      </div>
     </div>
-  </ng-container>
-</better-drawer-container>
+  </div>
+}

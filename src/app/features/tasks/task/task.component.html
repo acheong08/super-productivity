@@ -16,21 +16,11 @@
     class="block-right bg-400"
   >
     <!--NOTE: non observable should be enough as we only need the initial value-->
-    @if (isTodayListActive()) {
-      @if (!t.repeatCfgId) {
-        <mat-icon>today</mat-icon>
-      }
-      @if (t.repeatCfgId) {
-        <mat-icon svgIcon="repeat"></mat-icon>
-      }
+    @if (!t.repeatCfgId) {
+      <mat-icon>today</mat-icon>
     }
-    @if (!isTodayListActive()) {
-      @if (!isTodayTag()) {
-        <mat-icon>wb_sunny</mat-icon>
-      }
-      @if (isTodayTag() && (t.projectId || t.tagIds?.length > 1)) {
-        <mat-icon svgIcon="remove_today"></mat-icon>
-      }
+    @if (t.repeatCfgId) {
+      <mat-icon svgIcon="repeat"></mat-icon>
     }
   </div>
 }
@@ -49,6 +39,7 @@
   <div class="box"></div>
 
   <div
+    panGesture
     (longPressIOS)="openContextMenu($event)"
     (contextmenu)="openContextMenu($event)"
     (panend)="onPanEnd()"
@@ -80,7 +71,10 @@
       </button>
     }
 
-    <div class="title-and-left-btns-wrapper">
+    <div
+      class="title-and-left-btns-wrapper"
+      (click)="titleBarClick($event)"
+    >
       <div
         (click)="focusSelf()"
         [class.handle-par]="!isInSubTaskList()"
@@ -121,13 +115,7 @@
         </div>
       </div>
 
-      <div
-        (click)="
-          IS_TOUCH_PRIMARY &&
-            (t.title.length ? toggleShowDetailPanel($event) : focusTitleForEdit())
-        "
-        class="title-and-tags-wrapper"
-      >
+      <div class="title-and-tags-wrapper">
         @if (!isInSubTaskList() && t.parentId) {
           <div class="parent-title">
             <div class="title">{{ parentTitle() }}</div>
@@ -220,31 +208,52 @@
             (click)="scheduleTask()"
             [title]="T.F.TASK.CMP.EDIT_SCHEDULED | translate"
             class="ico-btn schedule-btn"
-            color=""
+            [color]="isOverdue() ? 'warn' : ''"
             mat-icon-button
           >
             <mat-icon>alarm</mat-icon>
             <div
               class="time-badge"
-              [innerHTML]="t.plannedAt | shortPlannedAt"
+              [innerHTML]="t.dueWithTime | shortPlannedAt"
             ></div>
           </button>
-        }
-        @if (((plannerService.plannedTaskDayMap$ | async) || {})[t.id]; as plannedAtDay) {
+        } @else if (t.dueWithTime) {
           <button
             (click)="scheduleTask()"
-            [title]="T.F.TASK.CMP.SCHEDULE | translate"
+            [title]="T.F.TASK.CMP.EDIT_SCHEDULED | translate"
             class="ico-btn schedule-btn"
-            color=""
+            [color]="isOverdue() ? 'warn' : ''"
             mat-icon-button
           >
-            <mat-icon>today</mat-icon>
-            <div class="time-badge">{{ plannedAtDay | localDateStr }}</div>
+            @if (isScheduledToday()) {
+              <mat-icon>wb_sunny</mat-icon>
+            } @else {
+              <mat-icon>schedule</mat-icon>
+            }
+            <div
+              class="time-badge"
+              [innerHTML]="t.dueWithTime | shortPlannedAt"
+            ></div>
+          </button>
+        } @else if (isShowDueDayBtn()) {
+          <button
+            (click)="scheduleTask()"
+            [title]="T.F.TASK.CMP.EDIT_SCHEDULED | translate"
+            class="ico-btn schedule-btn"
+            [color]="isOverdue() ? 'warn' : ''"
+            mat-icon-button
+          >
+            @if (isScheduledToday()) {
+              <mat-icon>wb_sunny</mat-icon>
+            } @else {
+              <mat-icon>today</mat-icon>
+            }
+            <div class="time-badge">{{ t.dueDay | localDateStr: todayStr() }}</div>
           </button>
         }
 
         <div>
-          @if (t.notes || (t.issueId && t.issueType !== ICAL_TYPE) || isSelected()) {
+          @if (t.notes || (t.issueId && t.issueType !== ICAL_TYPE)) {
             <button
               (click)="toggleShowDetailPanel()"
               title="{{ T.F.TASK.CMP.TOGGLE_DETAIL_PANEL | translate }}  {{
@@ -252,7 +261,6 @@
                   ? '[' + kb.taskToggleDetailPanelOpen + ']'
                   : ''
               }}"
-              [class.closeBtn]="!t.issueWasUpdated && isSelected()"
               class="ico-btn show-additional-info-btn"
               color=""
               mat-icon-button
@@ -306,7 +314,7 @@
       }
       @if (t.subTasks?.length) {
         <task-list
-          [@expand]
+          [@expandInOnly]
           [isHideAll]="!!t._hideSubTasksMode"
           [isHideDone]="t._hideSubTasksMode === ShowSubTasksMode.HideDone"
           [isSubTaskList]="true"

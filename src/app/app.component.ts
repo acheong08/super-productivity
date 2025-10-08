@@ -1,11 +1,19 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  computed,
+  DestroyRef,
+  effect,
+  ElementRef,
   HostBinding,
   HostListener,
   inject,
+  NgZone,
   OnDestroy,
+  ViewChild,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ChromeExtensionInterfaceService } from './core/chrome-extension-interface/chrome-extension-interface.service';
 import { ShortcutService } from './core-ui/shortcut/shortcut.service';
 import { GlobalConfigService } from './features/config/global-config.service';
@@ -29,29 +37,25 @@ import { ImexViewService } from './imex/imex-meta/imex-view.service';
 import { IS_ANDROID_WEB_VIEW } from './util/is-android-web-view';
 import { isOnline$ } from './util/is-online';
 import { SyncTriggerService } from './imex/sync/sync-trigger.service';
+import { SyncWrapperService } from './imex/sync/sync-wrapper.service';
 import { environment } from '../environments/environment';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { TrackingReminderService } from './features/tracking-reminder/tracking-reminder.service';
-import { map } from 'rxjs/operators';
+import { map, take } from 'rxjs/operators';
 import { IS_MOBILE } from './util/is-mobile';
 import { warpAnimation, warpInAnimation } from './ui/animations/warp.ani';
 import { GlobalConfigState } from './features/config/global-config.model';
 import { AddTaskBarComponent } from './features/tasks/add-task-bar/add-task-bar.component';
-import { SearchBarComponent } from './features/search-bar/search-bar.component';
-import {
-  MatSidenav,
-  MatSidenavContainer,
-  MatSidenavContent,
-} from '@angular/material/sidenav';
 import { Dir } from '@angular/cdk/bidi';
-import { SideNavComponent } from './core-ui/side-nav/side-nav.component';
+import { MagicSideNavComponent } from './core-ui/magic-side-nav/magic-side-nav.component';
 import { MainHeaderComponent } from './core-ui/main-header/main-header.component';
 import { BannerComponent } from './core/banner/banner/banner.component';
 import { GlobalProgressBarComponent } from './core-ui/global-progress-bar/global-progress-bar.component';
 import { FocusModeOverlayComponent } from './features/focus-mode/focus-mode-overlay/focus-mode-overlay.component';
 import { ShepherdComponent } from './features/shepherd/shepherd.component';
-import { AsyncPipe } from '@angular/common';
-import { selectIsFocusOverlayShown } from './features/focus-mode/store/focus-mode.selectors';
+import { AsyncPipe, DOCUMENT } from '@angular/common';
+import { RightPanelComponent } from './features/right-panel/right-panel.component';
+import { selectIsOverlayShown } from './features/focus-mode/store/focus-mode.selectors';
 import { Store } from '@ngrx/store';
 import { PfapiService } from './pfapi/pfapi.service';
 import { PersistenceLegacyService } from './core/persistence/persistence-legacy.service';
@@ -61,13 +65,36 @@ import { SyncStatus } from './pfapi/api';
 import { LocalBackupService } from './imex/local-backup/local-backup.service';
 import { DEFAULT_META_MODEL } from './pfapi/api/model-ctrl/meta-model-ctrl';
 import { AppDataCompleteNew } from './pfapi/pfapi-config';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MatDialog } from '@angular/material/dialog';
 import { DialogPleaseRateComponent } from './features/dialog-please-rate/dialog-please-rate.component';
-import { getWorklogStr } from './util/get-work-log-str';
+import { getDbDateStr } from './util/get-db-date-str';
+import { PluginService } from './plugins/plugin.service';
+import { MarkdownPasteService } from './features/tasks/markdown-paste.service';
+import { TaskService } from './features/tasks/task.service';
+import { IpcRendererEvent } from 'electron';
+import { SyncSafetyBackupService } from './imex/sync/sync-safety-backup.service';
+import { Log } from './core/log';
+import { MatMenuItem } from '@angular/material/menu';
+import { MatIcon } from '@angular/material/icon';
+import { DialogUnsplashPickerComponent } from './ui/dialog-unsplash-picker/dialog-unsplash-picker.component';
+import { ProjectService } from './features/project/project.service';
+import { TagService } from './features/tag/tag.service';
+import { ContextMenuComponent } from './ui/context-menu/context-menu.component';
+import { WorkContextThemeCfg } from './features/work-context/work-context.model';
+import { isInputElement } from './util/dom-element';
+import { MobileBottomNavComponent } from './core-ui/mobile-bottom-nav/mobile-bottom-nav.component';
 
-const w = window as any;
-const productivityTip: string[] = w.productivityTips && w.productivityTips[w.randomIndex];
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+const w = window as Window & { productivityTips?: string[][]; randomIndex?: number };
+const productivityTip: string[] | undefined =
+  w.productivityTips && w.randomIndex !== undefined
+    ? w.productivityTips[w.randomIndex]
+    : undefined;
 
 @Component({
   selector: 'app-root',
@@ -83,23 +110,26 @@ const productivityTip: string[] = w.productivityTips && w.productivityTips[w.ran
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AddTaskBarComponent,
-    SearchBarComponent,
-    MatSidenavContainer,
     Dir,
-    MatSidenav,
-    SideNavComponent,
-    MatSidenavContent,
+    MagicSideNavComponent,
     MainHeaderComponent,
     BannerComponent,
+    RightPanelComponent,
     RouterOutlet,
     GlobalProgressBarComponent,
     FocusModeOverlayComponent,
     ShepherdComponent,
     AsyncPipe,
+    MatMenuItem,
+    MatIcon,
+    TranslatePipe,
+    ContextMenuComponent,
+    MobileBottomNavComponent,
   ],
 })
-export class AppComponent implements OnDestroy {
+export class AppComponent implements OnDestroy, AfterViewInit {
   private _translateService = inject(TranslateService);
+
   private _globalConfigService = inject(GlobalConfigService);
   private _shortcutService = inject(ShortcutService);
   private _bannerService = inject(BannerService);
@@ -115,6 +145,18 @@ export class AppComponent implements OnDestroy {
   private _persistenceLocalService = inject(PersistenceLocalService);
   private _localBackupService = inject(LocalBackupService);
   private _matDialog = inject(MatDialog);
+  private _markdownPasteService = inject(MarkdownPasteService);
+  private _taskService = inject(TaskService);
+  private _pluginService = inject(PluginService);
+  private _syncWrapperService = inject(SyncWrapperService);
+  private _projectService = inject(ProjectService);
+  private _tagService = inject(TagService);
+  private _destroyRef = inject(DestroyRef);
+  private _ngZone = inject(NgZone);
+  private _document = inject(DOCUMENT, { optional: true });
+
+  // needs to be imported for initialization
+  private _syncSafetyBackupService = inject(SyncSafetyBackupService);
 
   readonly syncTriggerService = inject(SyncTriggerService);
   readonly imexMetaService = inject(ImexViewService);
@@ -122,11 +164,22 @@ export class AppComponent implements OnDestroy {
   readonly layoutService = inject(LayoutService);
   readonly globalThemeService = inject(GlobalThemeService);
   readonly _store = inject(Store);
+  readonly T = T;
+  readonly isShowMobileButtonNav = this.layoutService.isShowMobileBottomNav;
 
-  productivityTipTitle: string = productivityTip && productivityTip[0];
-  productivityTipText: string = productivityTip && productivityTip[1];
+  productivityTipTitle: string = productivityTip?.[0] || '';
+  productivityTipText: string = productivityTip?.[1] || '';
 
-  @HostBinding('@.disabled') isDisableAnimations = false;
+  @ViewChild('routeWrapper', { read: ElementRef }) routeWrapper?: ElementRef<HTMLElement>;
+
+  @HostBinding('@.disabled') get isDisableAnimations(): boolean {
+    return this._isDisableAnimations();
+  }
+
+  private _isDisableAnimations = computed(() => {
+    const misc = this._globalConfigService.misc();
+    return misc?.isDisableAnimations ?? false;
+  });
 
   isRTL: boolean = false;
 
@@ -140,8 +193,13 @@ export class AppComponent implements OnDestroy {
     ),
   );
 
-  isShowFocusOverlay$: Observable<boolean> = this._store.select(
-    selectIsFocusOverlayShown,
+  isShowFocusOverlay = toSignal(this._store.select(selectIsOverlayShown), {
+    initialValue: false,
+  });
+
+  private readonly _activeWorkContextId = toSignal(
+    this.workContextService.activeWorkContextId$,
+    { initialValue: null },
   );
 
   private _subs: Subscription = new Subscription();
@@ -153,7 +211,9 @@ export class AppComponent implements OnDestroy {
 
     this._checkMigrationAndInitBackups();
 
-    this._subs = this._languageService.isLangRTL.subscribe((val) => {
+    // Use effect to react to language RTL changes
+    effect(() => {
+      const val = this._languageService.isLangRTL();
       this.isRTL = val;
       document.dir = this.isRTL ? 'rtl' : 'ltr';
     });
@@ -165,11 +225,6 @@ export class AppComponent implements OnDestroy {
         }
       }),
     );
-    this._subs.add(
-      this._globalConfigService.misc$.subscribe((misc) => {
-        this.isDisableAnimations = misc.isDisableAnimations;
-      }),
-    );
 
     // init theme and body class handlers
     this._globalThemeService.init();
@@ -178,13 +233,14 @@ export class AppComponent implements OnDestroy {
     this._requestPersistence();
 
     // deferred init
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
       this._startTrackingReminderService.init();
       this._checkAvailableStorage();
       // init offline banner in lack of a better place for it
       this._initOfflineBanner();
 
-      if (this._globalConfigService.cfg?.misc.isShowTipLonger) {
+      const miscCfg = this._globalConfigService.misc();
+      if (!miscCfg?.isDisableProductivityTips) {
         this._snackService.open({
           ico: 'lightbulb',
           config: {
@@ -192,15 +248,21 @@ export class AppComponent implements OnDestroy {
           },
           msg:
             '<strong>' +
-            (window as any).productivityTips[(window as any).randomIndex][0] +
+            w.productivityTips![w.randomIndex!][0] +
             ':</strong> ' +
-            (window as any).productivityTips[(window as any).randomIndex][1],
+            w.productivityTips![w.randomIndex!][1],
+          actionStr: T.G.DONT_SHOW_AGAIN,
+          actionFn: () => {
+            this._globalConfigService.updateSection('misc', {
+              isDisableProductivityTips: true,
+            });
+          },
         });
       }
 
       const appStarts = +(localStorage.getItem(LS.APP_START_COUNT) || 0);
       const lastStartDay = localStorage.getItem(LS.APP_START_COUNT_LAST_START_DAY);
-      const todayStr = getWorklogStr();
+      const todayStr = getDbDateStr();
       if (appStarts === 32 || appStarts === 96) {
         this._matDialog.open(DialogPleaseRateComponent);
         localStorage.setItem(LS.APP_START_COUNT, (appStarts + 1).toString());
@@ -209,22 +271,53 @@ export class AppComponent implements OnDestroy {
         localStorage.setItem(LS.APP_START_COUNT, (appStarts + 1).toString());
         localStorage.setItem(LS.APP_START_COUNT_LAST_START_DAY, todayStr);
       }
+
+      // Initialize plugin system
+      try {
+        // Wait for sync to complete before initializing plugins to avoid DB lock conflicts
+        await this._syncWrapperService.afterCurrentSyncDoneOrSyncDisabled$
+          .pipe(take(1))
+          .toPromise();
+        await this._pluginService.initializePlugins();
+        Log.log('Plugin system initialized after sync completed');
+      } catch (error) {
+        Log.err('Failed to initialize plugin system:', error);
+      }
     }, 1000);
 
     if (IS_ELECTRON) {
       window.ea.informAboutAppReady();
-      this._initElectronErrorHandler();
+
+      // Initialize electron error handler in an effect
+      effect(() => {
+        window.ea.on(IPC.ERROR, (ev: IpcRendererEvent, ...args: unknown[]) => {
+          const data = args[0] as {
+            error: unknown;
+            stack: unknown;
+            errorStr: string | unknown;
+          };
+          const errMsg =
+            typeof data.errorStr === 'string' ? data.errorStr : ' INVALID ERROR MSG :( ';
+
+          this._snackService.open({
+            msg: errMsg,
+            type: 'ERROR',
+          });
+          Log.err(data);
+        });
+      });
+
       this._uiHelperService.initElectron();
 
       window.ea.on(IPC.TRANSFER_SETTINGS_REQUESTED, () => {
         window.ea.sendAppSettingsToElectron(
-          this._globalConfigService.cfg as GlobalConfigState,
+          this._globalConfigService.cfg() as GlobalConfigState,
         );
       });
     } else {
       // WEB VERSION
       window.addEventListener('beforeunload', (e) => {
-        const gCfg = this._globalConfigService.cfg;
+        const gCfg = this._globalConfigService.cfg();
         if (!gCfg) {
           throw new Error();
         }
@@ -241,21 +334,61 @@ export class AppComponent implements OnDestroy {
     }
   }
 
-  @HostListener('document:keydown', ['$event']) onKeyDown(ev: KeyboardEvent): void {
-    this._shortcutService.handleKeyDown(ev);
-  }
+  @HostListener('document:paste', ['$event']) onPaste(ev: ClipboardEvent): void {
+    // Skip handling inside input elements
+    const target = ev.target as HTMLElement;
+    if (isInputElement(target)) return;
 
-  // prevent page reloads on missed drops
-  @HostListener('document:dragover', ['$event']) onDragOver(ev: DragEvent): void {
-    ev.preventDefault();
-  }
+    const clipboardData = ev.clipboardData;
+    if (!clipboardData) return;
 
-  @HostListener('document:drop', ['$event']) onDrop(ev: DragEvent): void {
+    const pastedText = clipboardData.getData('text/plain');
+    if (!pastedText) return;
+
+    if (!this._markdownPasteService.isMarkdownTaskList(pastedText)) return;
+
+    // Prevent default paste behavior
     ev.preventDefault();
+
+    // Check if paste is happening on a task element
+    let taskId: string | null = null;
+    let taskTitle: string | null = null;
+    let isSubTask = false;
+
+    // Find task element by traversing up the DOM tree
+    let element: HTMLElement | null = target;
+    while (element && !element.id.startsWith('t-')) {
+      element = element.parentElement;
+    }
+
+    if (element && element.id.startsWith('t-')) {
+      // Extract task ID from DOM id (format: "t-{taskId}")
+      taskId = element.id.substring(2);
+
+      // Get task data to determine if it's a sub-task
+      this._taskService.getByIdOnce$(taskId).subscribe((task) => {
+        if (task) {
+          taskTitle = task.title;
+          isSubTask = !!task.parentId;
+          this._markdownPasteService.handleMarkdownPaste(
+            pastedText,
+            taskId,
+            taskTitle,
+            isSubTask,
+          );
+        } else {
+          // Fallback: handle as parent tasks if task not found
+          this._markdownPasteService.handleMarkdownPaste(pastedText, null);
+        }
+      });
+    } else {
+      // Handle as parent tasks since no specific task context
+      this._markdownPasteService.handleMarkdownPaste(pastedText, null);
+    }
   }
 
   @HostListener('window:beforeinstallprompt', ['$event']) onBeforeInstallPrompt(
-    e: any,
+    e: BeforeInstallPromptEvent,
   ): void {
     if (IS_ELECTRON || localStorage.getItem(LS.WEB_APP_INSTALL)) {
       return;
@@ -291,6 +424,92 @@ export class AppComponent implements OnDestroy {
     return outlet.activatedRouteData.page || 'one';
   }
 
+  getActiveWorkContextId(): string | null {
+    return this._activeWorkContextId();
+  }
+
+  changeBackgroundFromUnsplash(): void {
+    const dialogRef = this._matDialog.open(DialogUnsplashPickerComponent, {
+      width: '900px',
+      maxWidth: '95vw',
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        // Get current work context
+        this.workContextService.activeWorkContext$
+          .pipe(take(1))
+          .subscribe((activeContext) => {
+            if (!activeContext) {
+              this._snackService.open({
+                type: 'ERROR',
+                msg: 'No active work context',
+              });
+              return;
+            }
+
+            // Extract the URL from the result object
+            const backgroundUrl = result.url || result;
+            const isDarkMode = this._globalThemeService.isDarkTheme();
+            const contextKey: keyof WorkContextThemeCfg = isDarkMode
+              ? 'backgroundImageDark'
+              : 'backgroundImageLight';
+
+            // Update the theme based on context type
+            if (activeContext.type === 'PROJECT') {
+              this._projectService.update(activeContext.id, {
+                theme: {
+                  ...(activeContext.theme || {}),
+                  [contextKey]: backgroundUrl,
+                },
+              });
+            } else if (activeContext.type === 'TAG') {
+              this._tagService.updateTag(activeContext.id, {
+                theme: {
+                  ...(activeContext.theme || {}),
+                  [contextKey]: backgroundUrl,
+                },
+              });
+            }
+          });
+      }
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this._ngZone.runOutsideAngular(() => {
+      const doc = this._document!;
+      // Handle global document events outside Angular to avoid change detection churn.
+      // - dragover/drop: block the browser's default file-drop navigation.
+      // - keydown: route shortcuts and only re-enter Angular when they matter.
+      // Prevent the browser from treating file drops as navigation events
+      const onDragOver = (ev: DragEvent): void => {
+        ev.preventDefault();
+      };
+
+      // Ensure accidental file drops don’t replace the SPA with the dropped file
+      const onDrop = (ev: DragEvent): void => {
+        ev.preventDefault();
+      };
+
+      const onKeyDown = (ev: KeyboardEvent): void => {
+        this._ngZone.run(() => {
+          void this._shortcutService.handleKeyDown(ev);
+        });
+      };
+
+      doc.addEventListener('dragover', onDragOver, { passive: false });
+      doc.addEventListener('drop', onDrop, { passive: false });
+      doc.addEventListener('keydown', onKeyDown);
+
+      this._destroyRef.onDestroy(() => {
+        doc.removeEventListener('dragover', onDragOver);
+        doc.removeEventListener('drop', onDrop);
+        doc.removeEventListener('keydown', onKeyDown);
+      });
+    });
+  }
+
   ngOnDestroy(): void {
     this._subs.unsubscribe();
     if (this._intervalTimer) clearInterval(this._intervalTimer);
@@ -311,7 +530,7 @@ export class AppComponent implements OnDestroy {
       this.imexMetaService.setDataImportInProgress(true);
 
       const legacyData = await this._persistenceLegacyService.loadComplete();
-      console.log({ legacyData: legacyData });
+      Log.log({ legacyData: legacyData });
 
       alert(this._translateService.instant(T.MIGRATE.DETECTED_LEGACY));
 
@@ -323,7 +542,7 @@ export class AppComponent implements OnDestroy {
       }
       try {
         await this._pfapiService.importCompleteBackup(
-          legacyData as any as AppDataCompleteNew,
+          legacyData as unknown as AppDataCompleteNew,
           true,
           true,
         );
@@ -346,13 +565,16 @@ export class AppComponent implements OnDestroy {
       } catch (error) {
         // prevent any interaction with the app on after failure
         this.imexMetaService.setDataImportInProgress(true);
-        console.error(error);
+        Log.err(error);
 
         try {
           alert(
             this._translateService.instant(T.MIGRATE.E_MIGRATION_FAILED) +
               '\n\n' +
-              JSON.stringify((error as any).additionalLog[0].errors),
+              JSON.stringify(
+                (error as { additionalLog?: Array<{ errors: unknown }> })
+                  .additionalLog?.[0]?.errors,
+              ),
           );
         } catch (e) {
           alert(
@@ -412,29 +634,6 @@ export class AppComponent implements OnDestroy {
     });
   }
 
-  private _initElectronErrorHandler(): void {
-    window.ea.on(
-      IPC.ERROR,
-      (
-        ev,
-        data: {
-          error: any;
-          stack: any;
-          errorStr: string | unknown;
-        },
-      ) => {
-        const errMsg =
-          typeof data.errorStr === 'string' ? data.errorStr : ' INVALID ERROR MSG :( ';
-
-        this._snackService.open({
-          msg: errMsg,
-          type: 'ERROR',
-        });
-        console.error(data);
-      },
-    );
-  }
-
   private _initOfflineBanner(): void {
     isOnline$.subscribe((isOnlineIn) => {
       if (!isOnlineIn) {
@@ -453,25 +652,26 @@ export class AppComponent implements OnDestroy {
     if (navigator.storage) {
       // try to avoid data-loss
       Promise.all([navigator.storage.persisted()])
-        .then(([persisted]): any => {
+        .then(([persisted]) => {
           if (!persisted) {
             return navigator.storage.persist().then((granted) => {
               if (granted) {
-                console.log('Persistent store granted');
+                Log.log('Persistent store granted');
               }
               // NOTE: we never execute for android web view, because it is always true
               else if (!IS_ANDROID_WEB_VIEW) {
                 const msg = T.GLOBAL_SNACK.PERSISTENCE_DISALLOWED;
-                console.warn('Persistence not allowed');
+                Log.warn('Persistence not allowed');
                 this._snackService.open({ msg });
               }
             });
           } else {
-            console.log('Persistence already allowed');
+            Log.log('Persistence already allowed');
+            return;
           }
         })
         .catch((e) => {
-          console.log(e);
+          Log.log(e);
           const err = e && e.toString ? e.toString() : 'UNKNOWN';
           const msg = T.GLOBAL_SNACK.PERSISTENCE_ERROR;
           this._snackService.open({
@@ -496,7 +696,7 @@ export class AppComponent implements OnDestroy {
           const usageInMib = Math.round(u / (1024 * 1024));
           const quotaInMib = Math.round(q / (1024 * 1024));
           const details = `${usageInMib} out of ${quotaInMib} MiB used (${percentUsed}%)`;
-          console.log(details);
+          Log.log(details);
           if (quotaInMib - usageInMib <= 333) {
             alert(
               `There is only very little disk space available (${
@@ -522,8 +722,10 @@ export class AppComponent implements OnDestroy {
       el?.focus();
 
       if (el && IS_MOBILE) {
-        el.classList.add('mobile-highlight');
-        el.addEventListener('blur', () => el.classList.remove('mobile-highlight'));
+        el.classList.add('mobile-highlight-searched-item');
+        el.addEventListener('blur', () =>
+          el.classList.remove('mobile-highlight-searched-item'),
+        );
       }
 
       if ((el || counter === 4) && this._intervalTimer) {

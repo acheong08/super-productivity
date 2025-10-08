@@ -1,5 +1,4 @@
-@import '../../../../variables';
-@import '../../tasks/task/task.component.mixins';
+@use '../../../../styles/_globals.scss' as *;
 
 :host {
   //@include grabCursor();
@@ -7,18 +6,12 @@
   align-items: center;
   padding: 0;
   border-radius: 6px;
-  border: 1px solid;
+  //border: 1px solid;
 
-  @include lightTheme() {
-    background: $task-c-bg-light;
-    border-color: $light-theme-extra-border-color;
-  }
-
-  @include darkTheme() {
-    color: $task-text-c-dark;
-    //background: $task-c-bg-dark;
-    border-color: $dark-theme-extra-border-color;
-  }
+  background: var(--task-c-bg);
+  box-shadow: var(--task-shadow);
+  color: var(--text-color);
+  //border-color: var(--extra-border-color);
 
   &.isDone {
     opacity: 0.7;

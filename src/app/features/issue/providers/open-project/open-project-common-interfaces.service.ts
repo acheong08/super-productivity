@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, of, timer } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { Task } from 'src/app/features/tasks/task.model';
 import { concatMap, first, map, switchMap } from 'rxjs/operators';
 import { IssueServiceInterface } from '../../issue-service-interface';
@@ -9,18 +9,16 @@ import { OpenProjectCfg } from './open-project.model';
 import {
   OpenProjectWorkPackage,
   OpenProjectWorkPackageReduced,
-} from './open-project-issue/open-project-issue.model';
+} from './open-project-issue.model';
 import { isOpenProjectEnabled } from './is-open-project-enabled.util';
-import {
-  OPEN_PROJECT_INITIAL_POLL_DELAY,
-  OPEN_PROJECT_POLL_INTERVAL,
-} from './open-project.const';
+import { OPEN_PROJECT_POLL_INTERVAL } from './open-project.const';
 import { parseOpenProjectDuration } from './open-project-view-components/parse-open-project-duration.util';
 import {
   formatOpenProjectWorkPackageSubject,
   formatOpenProjectWorkPackageSubjectForSnack,
 } from './format-open-project-work-package-subject.util';
 import { IssueProviderService } from '../../issue-provider.service';
+import { IssueLog } from '../../../../core/log';
 
 @Injectable({
   providedIn: 'root',
@@ -29,47 +27,59 @@ export class OpenProjectCommonInterfacesService implements IssueServiceInterface
   private readonly _openProjectApiService = inject(OpenProjectApiService);
   private readonly _issueProviderService = inject(IssueProviderService);
 
-  pollTimer$: Observable<number> = timer(
-    OPEN_PROJECT_INITIAL_POLL_DELAY,
-    OPEN_PROJECT_POLL_INTERVAL,
-  );
+  pollInterval: number = OPEN_PROJECT_POLL_INTERVAL;
 
   isEnabled(cfg: OpenProjectCfg): boolean {
     return isOpenProjectEnabled(cfg);
   }
 
-  testConnection$(cfg: OpenProjectCfg): Observable<boolean> {
-    return this._openProjectApiService.searchIssueForRepo$('', cfg).pipe(
-      map((res) => Array.isArray(res)),
-      first(),
-    );
+  testConnection(cfg: OpenProjectCfg): Promise<boolean> {
+    return this._openProjectApiService
+      .searchIssueForRepo$('', cfg)
+      .pipe(
+        map((res) => Array.isArray(res)),
+        first(),
+      )
+      .toPromise()
+      .then((result) => result ?? false);
   }
 
-  issueLink$(issueId: number, issueProviderId: string): Observable<string> {
-    return this._getCfgOnce$(issueProviderId).pipe(
-      map((cfg) => `${cfg.host}/projects/${cfg.projectId}/work_packages/${issueId}`),
-    );
+  issueLink(issueId: number, issueProviderId: string): Promise<string> {
+    return this._getCfgOnce$(issueProviderId)
+      .pipe(
+        map((cfg) => `${cfg.host}/projects/${cfg.projectId}/work_packages/${issueId}`),
+      )
+      .toPromise()
+      .then((result) => result ?? '');
   }
 
-  getById$(issueId: number, issueProviderId: string): Observable<OpenProjectWorkPackage> {
-    return this._getCfgOnce$(issueProviderId).pipe(
-      concatMap((openProjectCfg) =>
-        this._openProjectApiService.getById$(issueId, openProjectCfg),
-      ),
-    );
+  getById(issueId: number, issueProviderId: string): Promise<OpenProjectWorkPackage> {
+    return this._getCfgOnce$(issueProviderId)
+      .pipe(
+        concatMap((openProjectCfg) =>
+          this._openProjectApiService.getById$(issueId, openProjectCfg),
+        ),
+      )
+      .toPromise()
+      .then((result) => {
+        if (!result) {
+          throw new Error('Failed to get OpenProject work package');
+        }
+        return result;
+      });
   }
 
-  searchIssues$(
-    searchTerm: string,
-    issueProviderId: string,
-  ): Observable<SearchResultItem[]> {
-    return this._getCfgOnce$(issueProviderId).pipe(
-      switchMap((openProjectCfg) =>
-        this.isEnabled(openProjectCfg)
-          ? this._openProjectApiService.searchIssueForRepo$(searchTerm, openProjectCfg)
-          : of([]),
-      ),
-    );
+  searchIssues(searchTerm: string, issueProviderId: string): Promise<SearchResultItem[]> {
+    return this._getCfgOnce$(issueProviderId)
+      .pipe(
+        switchMap((openProjectCfg) =>
+          this.isEnabled(openProjectCfg)
+            ? this._openProjectApiService.searchIssueForRepo$(searchTerm, openProjectCfg)
+            : of([]),
+        ),
+      )
+      .toPromise()
+      .then((result) => result ?? []);
   }
 
   async getFreshDataForIssueTask(task: Task): Promise<{
@@ -146,10 +156,9 @@ export class OpenProjectCommonInterfacesService implements IssueServiceInterface
       issuePoints: issue.storyPoints || undefined,
       issueWasUpdated: false,
       // NOTE: we use Date.now() instead to because updated does not account for comments
-      plannedAt: issue.startDate
-        ? new Date(new Date(issue.startDate).setHours(7, 30, 0, 0)).getTime() +
-          this.oneDayInMilliseconds
-        : undefined, // Adjust plannedAt to 7 AM or set it to null if not present
+      // OpenProject returns startDate as YYYY-MM-DD string, use it directly
+      // to avoid timezone conversion issues
+      dueDay: issue.startDate || undefined,
       issueLastUpdated: new Date(issue.updatedAt).getTime(),
       ...(parsedEstimate > 0 ? { timeEstimate: parsedEstimate } : {}),
     };
@@ -160,7 +169,7 @@ export class OpenProjectCommonInterfacesService implements IssueServiceInterface
     allExistingIssueIds: number[] | string[],
   ): Promise<OpenProjectWorkPackageReduced[]> {
     const cfg = await this._getCfgOnce$(issueProviderId).toPromise();
-    console.log(
+    IssueLog.log(
       await this._openProjectApiService
         .getLast100WorkPackagesForCurrentOpenProjectProject$(cfg)
         .toPromise(),

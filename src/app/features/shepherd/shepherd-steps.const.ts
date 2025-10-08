@@ -4,7 +4,7 @@ import { LayoutService } from '../../core-ui/layout/layout.service';
 import { TaskService } from '../tasks/task.service';
 import { delay, filter, first, map, switchMap } from 'rxjs/operators';
 import { Actions, ofType } from '@ngrx/effects';
-import { addTask, deleteTask, updateTask } from '../tasks/store/task.actions';
+import { TaskSharedActions } from '../../root-store/meta/task-shared.actions';
 import { GlobalConfigState } from '../config/global-config.model';
 import { IS_MOUSE_PRIMARY } from '../../util/is-mouse-primary';
 import { NavigationEnd, Router } from '@angular/router';
@@ -114,7 +114,7 @@ export const SHEPHERD_STEPS = (
       },
       beforeShowPromise: () => promiseTimeout(200),
       when: twoWayObs(
-        { obs: actions$.pipe(ofType(addTask)) },
+        { obs: actions$.pipe(ofType(TaskSharedActions.addTask)) },
         {
           obs: merge(actions$.pipe(ofType(hideAddTaskBar))),
         },
@@ -160,6 +160,7 @@ export const SHEPHERD_STEPS = (
       ),
       beforeShowPromise: () => promiseTimeout(200),
     },
+
     {
       title: 'Time Tracking',
       text: '<p>Pressing the play button in the top right corner will start your first time tracking session.</p><p>Time tracking is useful as it allows you to get a better idea on how you spend your time. It will enable you to make better estimates and can improve how you work.</p>',
@@ -281,6 +282,10 @@ export const SHEPHERD_STEPS = (
         ]),
     {
       title: 'The Task Details',
+      attachTo: {
+        element: 'task-detail-panel',
+        on: IS_MOUSE_PRIMARY ? 'left' : 'top',
+      },
       text: `<p>This is the task detail panel. Here you can:</p><ul>
 <li>adjust estimates</li>
 <li>schedule your task</li>
@@ -294,10 +299,10 @@ export const SHEPHERD_STEPS = (
     {
       title: 'Closing the Task Details',
       text: IS_MOUSE_PRIMARY
-        ? 'You can close the panel by <em>clicking</em> on the <span class="material-icons">close</span>. Do this now!'
-        : 'You can close the panel by <em>tapping</em> on the <span class="material-icons">close</span>. Do this now!',
+        ? 'You can close the panel by <em>clicking</em> on the button with the <span class="material-icons">chevron_right</span> icon. Do this now!'
+        : 'You can close the panel by <em>tapping</em> on the darker backdrop in the top or dragging the panel handle to the very bottom. Do this now!',
       attachTo: {
-        element: '.show-additional-info-btn',
+        element: '.tour-edge-close-handle',
         on: 'bottom',
       },
       when: nextOnObs(
@@ -315,7 +320,10 @@ export const SHEPHERD_STEPS = (
               on: 'bottom' as any,
             },
             beforeShowPromise: () => promiseTimeout(500),
-            when: nextOnObs(actions$.pipe(ofType(updateTask)), shepherdService),
+            when: nextOnObs(
+              actions$.pipe(ofType(TaskSharedActions.updateTask)),
+              shepherdService,
+            ),
           },
           {
             title: 'Well done!  🎉',
@@ -340,7 +348,7 @@ export const SHEPHERD_STEPS = (
             },
             when: nextOnObs(
               actions$.pipe(
-                ofType(updateTask),
+                ofType(TaskSharedActions.updateTask),
                 filter(({ task }) => !!task.changes.isDone),
               ),
               shepherdService,
@@ -357,7 +365,7 @@ export const SHEPHERD_STEPS = (
             },
             when: nextOnObs(
               actions$.pipe(
-                ofType(updateTask),
+                ofType(TaskSharedActions.updateTask),
                 filter(({ task }) => !!task.changes.isDone),
               ),
               shepherdService,
@@ -373,7 +381,7 @@ export const SHEPHERD_STEPS = (
             beforeShowPromise: () => promiseTimeout(500),
             when: nextOnObs(
               actions$.pipe(
-                ofType(updateTask),
+                ofType(TaskSharedActions.updateTask),
                 filter(({ task }) => task.changes.isDone === false),
               ),
               shepherdService,
@@ -401,7 +409,7 @@ export const SHEPHERD_STEPS = (
               shepherdService.hide();
             });
             actions$
-              .pipe(ofType(deleteTask), first())
+              .pipe(ofType(TaskSharedActions.deleteTask), first())
               .subscribe(() => shepherdService.next());
           },
           hide: () => {
@@ -421,43 +429,34 @@ export const SHEPHERD_STEPS = (
     {
       id: TourId.Projects,
       title: 'Projects',
-      text: 'If you have lots of tasks, you probably need more than a single task list. One way of creating different lists is by using projects.',
+      text: 'If you have lots of tasks, you probably need more than a single task list. One way of creating different lists is by using projects. You can find projects in the menu (<span class="material-icons">menu</span>).',
       buttons: [{ ...NEXT_BTN, text: 'Good to know!' }],
-    },
-    {
-      title: 'Projects',
-      attachTo: {
-        element: '.tour-burgerTrigger',
-        on: 'bottom',
-      },
-      text: 'Open the menu (<span class="material-icons">menu</span>)',
-      when: nextOnObs(
-        layoutService.isShowSideNav$.pipe(filter((v) => !!v)),
-        shepherdService,
-      ),
     },
 
     // ------------------------------
-    {
-      id: TourId.IssueProviders,
-      beforeShowPromise: () => router.navigate(['tag/TODAY/tasks']),
-      title: 'Issue Integrations & Calendars',
-      text: 'You can import tasks from a variety of third party tools. To click on this icon <span class="material-icons">playlist_add</span> in the top right corner.',
-      attachTo: {
-        element: '.tour-issuePanelTrigger',
-        on: 'bottom',
-      },
-      when: nextOnObs(
-        layoutService.isShowIssuePanel$.pipe(filter((v) => !!v)),
-        shepherdService,
-      ),
-    },
-    {
-      id: TourId.IssueProviders,
-      title: 'Issue Integrations & Calendars',
-      text: 'To configure an issue provider or calendar, click on one of the buttons in the panel. But for now, lets continue.',
-      buttons: [{ ...NEXT_BTN, text: 'Alright!' }],
-    },
+    ...(IS_MOUSE_PRIMARY
+      ? [
+          {
+            id: TourId.IssueProviders,
+            beforeShowPromise: () => router.navigate(['tag/TODAY/tasks']),
+            title: 'Issue Integrations & Calendars',
+            text: 'You can import tasks from a variety of third party tools. To do so click on this icon <span class="material-icons">dashboard_customize</span> in the top right corner.',
+            attachTo: {
+              element: '.tour-issuePanelTrigger',
+              on: 'bottom' as any,
+            },
+            when: nextOnObs(
+              layoutService.isShowIssuePanel$.pipe(filter((v) => !!v)),
+              shepherdService,
+            ),
+          },
+          {
+            title: 'Issue Integrations & Calendars',
+            text: 'To configure an issue provider or calendar, click on one of the buttons in the panel. But for now, lets continue.',
+            buttons: [{ ...NEXT_BTN, text: 'Alright!' }],
+          },
+        ]
+      : []),
 
     // ------------------------------
     {
@@ -477,12 +476,21 @@ export const SHEPHERD_STEPS = (
         element: '.tour-burgerTrigger',
         on: 'bottom',
       },
-      beforeShowPromise: () => router.navigate(['']),
+      beforeShowPromise: () => {
+        return router.navigate(['']).then(() => {
+          // If nav is always visible, skip this step
+          if (!layoutService.isShowMobileBottomNav) {
+            setTimeout(() => shepherdService.next(), 0);
+          }
+        });
+      },
       text: 'Open the menu (<span class="material-icons">menu</span>)',
-      when: nextOnObs(
-        layoutService.isShowSideNav$.pipe(filter((v) => !!v)),
-        shepherdService,
-      ),
+      when: {
+        show: () => {
+          // TODO better implementation
+          setTimeout(() => shepherdService.next(), 8000);
+        },
+      },
     },
     {
       title: 'Configure Sync',
@@ -575,7 +583,7 @@ export const SHEPHERD_STEPS = (
                 classes: PRIMARY_CLASSES,
                 action: () => {
                   shepherdService.show(TourId.KeyboardNav);
-                  localStorage.setItem(LS.IS_SHOW_TOUR, 'true');
+                  localStorage.setItem(LS.IS_SKIP_TOUR, 'true');
                 },
               } as any,
             ]
@@ -585,7 +593,7 @@ export const SHEPHERD_STEPS = (
           classes: PRIMARY_CLASSES,
           action: () => {
             shepherdService.complete();
-            localStorage.setItem(LS.IS_SHOW_TOUR, 'true');
+            localStorage.setItem(LS.IS_SKIP_TOUR, 'true');
           },
         } as any,
       ],
@@ -598,7 +606,7 @@ export const SHEPHERD_STEPS = (
       text: 'Do you want to show the tour again the next time you start the app? You can always show the tour again via the help button in the left menu.',
       when: {
         show: () => {
-          if (localStorage.getItem(LS.IS_SHOW_TOUR)) {
+          if (localStorage.getItem(LS.IS_SKIP_TOUR)) {
             shepherdService.complete();
           }
         },
@@ -608,7 +616,7 @@ export const SHEPHERD_STEPS = (
           text: 'Never again',
           classes: SECONDARY_CLASSES,
           action: () => {
-            localStorage.setItem(LS.IS_SHOW_TOUR, 'true');
+            localStorage.setItem(LS.IS_SKIP_TOUR, 'true');
             shepherdService.complete();
           },
         } as any,
@@ -616,7 +624,7 @@ export const SHEPHERD_STEPS = (
           text: 'Again next time',
           classes: PRIMARY_CLASSES,
           action: () => {
-            localStorage.removeItem(LS.IS_SHOW_TOUR);
+            localStorage.removeItem(LS.IS_SKIP_TOUR);
             shepherdService.complete();
           },
         } as any,
@@ -650,7 +658,7 @@ export const SHEPHERD_STEPS = (
       when: twoWayObs(
         {
           obs: actions$.pipe(
-            ofType(addTask),
+            ofType(TaskSharedActions.addTask),
             switchMap(() =>
               workContextService.todaysTasks$.pipe(filter((tasks) => tasks.length >= 4)),
             ),

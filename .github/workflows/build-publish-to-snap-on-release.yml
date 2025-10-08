@@ -49,7 +49,7 @@ jobs:
 #        run: npm i
 #
 #      - name: Lint
-#        run: npm run lint:ci
+#        run: npm run lint
 #
 #      - name: Test Unit
 #        run: npm run test
@@ -74,6 +74,6 @@ jobs:
 #        env:
 #          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 #
-#      - run: snapcraft push app-builds/superProductivity*.snap --release stable
+#      - run: snapcraft push .tmp/app-builds/superProductivity*.snap --release stable
 #        env:
 #          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}

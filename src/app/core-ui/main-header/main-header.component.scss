@@ -1,8 +1,14 @@
-@import '../../../variables';
+@use '../../../styles/_globals.scss' as *;
 
-$mobileHorizontalPadding: 8px;
-$navVerticalPadding: 4px;
-$macExtraPadding: (-8px + $mac-title-bar-padding);
+// TODO split up into more manageable bits
+
+@mixin btn-transition {
+  transition: var(--transition-standard);
+  opacity: 0;
+  position: relative;
+  z-index: 2;
+  margin: var(--s) 0 0 0;
+}
 
 :host {
   display: block;
@@ -12,23 +18,22 @@ $macExtraPadding: (-8px + $mac-title-bar-padding);
 }
 
 :host-context(.isMac.isElectron) {
-  padding-top: $macExtraPadding;
+  padding-top: calc(var(--mac-title-bar-padding) - 8px);
   -webkit-app-region: drag;
   cursor: grab;
 
   .wrapper {
     -webkit-app-region: drag;
   }
-
   &:active {
     cursor: grabbing;
   }
 
   .current-work-context-title,
-  ::ng-deep button,
-  ::ng-deep a,
   button,
-  a {
+  a,
+  ::ng-deep button,
+  ::ng-deep a {
     -webkit-app-region: no-drag;
   }
 }
@@ -39,34 +44,11 @@ $macExtraPadding: (-8px + $mac-title-bar-padding);
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  padding: $navVerticalPadding $mobileHorizontalPadding;
-  //flex-wrap: wrap;
-  min-height: $bar-height-large;
-
+  padding: 4px 8px;
+  min-height: var(--bar-height-large);
   @include mq(xs) {
-    min-height: $bar-height;
-    padding: $navVerticalPadding 16px;
-  }
-}
-
-.current-work-context-title {
-  //font-weight: bold;
-  font-size: 18px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  //flex-grow: 1;
-  white-space: nowrap;
-  max-width: 100%;
-  cursor: pointer;
-  border-radius: $card-border-radius;
-  padding: $s 2 * $s $s $s;
-
-  @include mq(xs) {
-    padding-right: $s;
-  }
-
-  &:focus {
-    outline: none;
+    min-height: var(--bar-height);
+    padding: 4px 16px;
   }
 }
 
@@ -74,14 +56,13 @@ $macExtraPadding: (-8px + $mac-title-bar-padding);
   display: none;
   @include mq(xs) {
     display: block;
-    transition: $transition-standard;
+    transition: var(--transition-standard);
     opacity: 0;
-    margin-right: 2 * $s;
-    margin-left: -$s;
+    margin-right: var(--s2);
+    margin-left: calc(var(--s) * -1);
     position: relative;
     z-index: 1;
   }
-
   &:hover,
   .current-work-context-title:hover + & {
     opacity: 1;
@@ -93,71 +74,66 @@ button {
   cursor: pointer;
 }
 
+button.isActive2 {
+  background: var(--c-accent);
+  transition: background var(--transition-standard);
+}
+
 .action-nav {
-  margin-right: 0px;
+  margin-right: 0;
   margin-left: auto;
   display: flex;
   align-items: center;
 
   :host-context([dir='rtl']) & {
-    margin-left: 0px;
+    margin-left: 0;
     margin-right: auto;
   }
 
+  simple-counter-button,
   button {
-    margin-left: $s * 0.25;
-
+    margin-left: var(--s-quarter);
     @include mq(xs) {
-      margin-left: $s;
+      margin-left: var(--s);
     }
   }
 }
 
 @keyframes pulse {
-  0% {
-    transform: scale(0.7);
-  }
-  25% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1);
-  }
+  0%,
   100% {
     transform: scale(0.7);
+  }
+  25%,
+  50% {
+    transform: scale(1);
   }
 }
 
 .play-btn-wrapper {
   position: relative;
-  margin-left: $s * 0.5;
-
   @include mq(xs) {
-    margin-left: $s;
+    margin-left: var(--s);
   }
 
   .pulse-circle {
     width: 48px;
     height: 48px;
     position: absolute;
-    top: 0;
+    inset: 0;
+    top: auto;
     left: -4px;
-    right: 0;
-    bottom: 0;
     border-radius: 50%;
     margin: auto;
-    transform: scale(1, 1);
     animation: pulse 2s infinite;
-    background: $c-accent;
+    background: var(--c-accent);
     opacity: 0.6;
   }
 
   .play-btn {
     position: relative;
     margin-left: 0;
-    // needs to be above the rest
     z-index: 2;
-
     .circle-svg {
       transform: rotate(-90deg);
       position: absolute;
@@ -166,7 +142,6 @@ button {
       right: -8px;
       pointer-events: none;
     }
-
     .mat-icon {
       position: relative;
       z-index: 2;
@@ -174,30 +149,23 @@ button {
   }
 
   .pomodoro-label {
-    margin-left: 0;
     position: absolute;
     line-height: 1;
     padding: 2px 4px 1px;
-    background: #fff;
-    color: #000;
-    width: auto;
     left: 50%;
     transform: translateX(-50%);
-    box-shadow: $whiteframe-shadow-2dp;
+    box-shadow: var(--whiteframe-shadow-2dp);
     font-weight: bold;
     border-radius: 8px;
     z-index: 4;
     pointer-events: none;
-    bottom: $s * -0.25;
-
-    @include darkTheme {
-      background: $dark-theme-bg-lighter;
-      color: #fff;
-    }
+    bottom: calc(var(--s) * -0.25);
+    background: var(--bg-lighter);
+    color: var(--text-color-most-intense);
   }
 
   .pomodoro-controls {
-    transition: $transition-standard;
+    transition: var(--transition-standard);
     position: absolute;
     top: 100%;
     display: flex;
@@ -205,21 +173,15 @@ button {
     left: 50%;
     transform: translateX(-50%);
     pointer-events: none;
-
-    // add a little bit of extra hover area
     &:after {
       content: '';
       position: absolute;
-      top: $s * -1.25;
-      left: $s * -1.25;
-      right: $s * -1.25;
-      bottom: $s * -1.25;
+      inset: calc(var(--s) * -1.25);
     }
   }
 
   &:hover .pomodoro-controls {
     pointer-events: all;
-
     .pomodoro-btn {
       transform: translateY(0);
       opacity: 1;
@@ -227,16 +189,169 @@ button {
   }
 
   .pomodoro-btn {
-    transition: $transition-standard;
+    @include btn-transition;
+    transform: translateY(-100%);
+    &:nth-child(2) {
+      transform: translateY(-200%);
+    }
+  }
+}
+
+.mobile-dropdown-wrapper {
+  position: relative;
+}
+
+.mobile-dropdown {
+  position: absolute;
+  display: flex;
+  transition: var(--transition-standard);
+  top: 100%;
+  flex-direction: column;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+
+  &.isVisible {
+    pointer-events: all;
+  }
+
+  simple-counter-button {
+    @include btn-transition;
     transform: translateY(-100%);
     opacity: 0;
     position: relative;
     z-index: 2;
-    margin-top: $s;
+    margin-top: var(--s);
     margin-left: 0;
 
-    &:nth-child(2) {
-      transform: translateY(-200%);
+    @for $i from 2 through 7 {
+      &:nth-child(#{$i}) {
+        transform: translateY(#{$i * -100%});
+      }
+    }
+  }
+
+  &.isVisible simple-counter-button {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.panel-btn {
+  position: relative;
+  transition: all 0.2s;
+  overflow: visible !important;
+  &.isActive {
+    background: transparent;
+    .mat-icon {
+      transition: all 0.2s;
+      transform: rotate(45deg);
+    }
+    &::after {
+      border-radius: 4px;
+      box-shadow: 0 -2px 3px var(--separator-alpha);
+      background: var(--sidenav-bg);
+      content: '';
+      width: 100%;
+      position: absolute;
+      top: 0;
+      right: auto;
+      bottom: -5px;
+      left: 1px;
+      z-index: -1;
+    }
+    &.isCustomized::after {
+      background: var(--c-accent);
+    }
+  }
+  &:hover:not(.isActive):not(:disabled) {
+    background: var(--hover-color, rgba(0, 0, 0, 0.04));
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: transparent !important;
+    &::after {
+      background: transparent !important;
+    }
+  }
+}
+
+.spin {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.week-month-selector {
+  display: flex;
+  border-radius: var(--card-border-radius);
+  overflow: hidden;
+  margin-right: calc(var(--s) * 0.25);
+  box-shadow: var(--whiteframe-shadow-2dp);
+
+  @include mq(xs) {
+    margin-right: var(--s);
+  }
+
+  @include mq(xs, max) {
+    margin-right: calc(var(--s) * 0.125);
+  }
+}
+
+.week-month-btn {
+  min-width: 48px;
+  height: 36px;
+  padding: 0 var(--s);
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 0;
+  transition: var(--transition-standard);
+  cursor: pointer;
+  position: relative;
+
+  @include mq(xs, max) {
+    min-width: 40px;
+    padding: 0 calc(var(--s) * 0.75);
+    font-size: 11px;
+  }
+
+  @include lightTheme() {
+    &.active {
+      background: var(--c-primary);
+      color: white;
+      font-weight: 600;
+    }
+  }
+
+  @include darkTheme() {
+    background: var(--bg-lighter);
+    color: var(--text-color);
+
+    &:hover {
+      background: var(--dark8);
+    }
+
+    &.active {
+      background: var(--c-primary);
+      color: white;
+      font-weight: 600;
+    }
+  }
+
+  &:first-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-top-left-radius: var(--card-border-radius);
+    border-bottom-left-radius: var(--card-border-radius);
+
+    @include darkTheme() {
+      border-right-color: rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -245,147 +360,8 @@ button {
   position: absolute;
   right: 100%;
   width: auto;
-  border: 2px solid $c-accent;
+  border: 2px solid var(--c-accent);
   border-radius: 12px;
-  min-width: 50px;
-  white-space: nowrap;
-  padding: $s * 0.5 2 * $s;
-  padding-right: $s * 2.5;
-  margin-right: -$s * 2;
-  top: 50%;
-  transform: translateY(-50%);
-  background: #fff;
-  pointer-events: none;
-  transition: $transition-standard;
-  display: flex;
-
-  @include mq(xs, max) {
-    display: none;
-  }
-
-  @include darkTheme() {
-    background: $dark-theme-bg-lighter;
-  }
-
-  .title {
-    max-width: 250px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-  }
-
-  .project {
-    padding-right: 0;
-  }
-
-  :host:hover & {
-    opacity: 0;
-  }
-}
-
-.simple-counter-mobile-trigger {
-  margin-left: $s;
-}
-
-.simple-counter-buttons-outer-wrapper {
-  position: relative;
-}
-
-.simple-counter-buttons {
-  display: flex;
-
-  @include mq(xs, max) {
-    position: absolute;
-    display: flex;
-    transition: $transition-standard;
-    top: 100%;
-    flex-direction: column;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2;
-    pointer-events: none;
-
-    &.isVisibleMobile {
-      pointer-events: all;
-    }
-  }
-}
-
-simple-counter-button {
-  @include mq(xs, max) {
-    transition: $transition-standard;
-    transform: translateY(-100%);
-    opacity: 0;
-    position: relative;
-    z-index: 2;
-    margin-top: $s;
-    margin-left: 0;
-
-    &:nth-child(2) {
-      transform: translateY(-200%);
-    }
-    &:nth-child(3) {
-      transform: translateY(-300%);
-    }
-    &:nth-child(4) {
-      transform: translateY(-400%);
-    }
-    &:nth-child(5) {
-      transform: translateY(-500%);
-    }
-    &:nth-child(6) {
-      transform: translateY(-600%);
-    }
-    &:nth-child(7) {
-      transform: translateY(-700%);
-    }
-
-    .simple-counter-buttons.isVisibleMobile & {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-}
-
-.toggle-notes-btn {
-  position: relative;
-  overflow: visible !important;
-
-  &.isActive.isRouteWithRightPanel::after {
-    content: '';
-    width: 100%;
-    position: absolute;
-    left: 1px;
-    top: 0;
-    bottom: -5px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    z-index: -1;
-    box-shadow: 0px -2px 3px 0px rgba(0, 0, 0, 0.3);
-
-    @include lightTheme() {
-      background: $light-theme-selected-task-bg-color;
-      //border-color: rgba(0, 0, 0, 0.12);
-    }
-
-    @include darkTheme() {
-      background: $dark8;
-      //border-color: $dark-theme-extra-border-color;
-    }
-  }
-
-  @include mq(xxxs, max) {
-    &:disabled {
-      display: none;
-    }
-  }
-}
-
-.note-ico {
-  transition: $transition-standard;
-
-  .toggle-notes-btn.isActive & {
-    transform: rotate(45deg);
-  }
 }
 
 .sync-state-ico {
@@ -394,18 +370,10 @@ simple-counter-button {
   font-size: 10px;
   height: 10px;
   line-height: 10px;
-  left: 50%;
-  top: 50%;
-  font-weight: bold;
-  transform: translate(-50%, -50%);
 }
 
-.spin {
-  animation: spin 1.5s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(-360deg);
+:host:hover ::ng-deep {
+  .current-task-title {
+    display: none;
   }
 }

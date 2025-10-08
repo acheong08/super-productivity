@@ -21,6 +21,15 @@ export const APP_ROUTES: Routes = [
     canActivate: [FocusOverlayOpenGuard],
   },
   {
+    path: 'search',
+    loadComponent: () =>
+      import('./pages/search-page/search-page.component').then(
+        (m) => m.SearchPageComponent,
+      ),
+    data: { page: 'search' },
+    canActivate: [FocusOverlayOpenGuard],
+  },
+  {
     path: 'scheduled-list',
     loadComponent: () =>
       import('./pages/scheduled-list-page/scheduled-list-page.component').then(
@@ -201,6 +210,15 @@ export const APP_ROUTES: Routes = [
       import('./pages/config-page/config-page.component').then(
         (m) => m.ConfigPageComponent,
       ),
+  },
+  {
+    path: 'plugins/:pluginId/index',
+    loadComponent: () =>
+      import('./plugins/ui/plugin-index/plugin-index.component').then(
+        (m) => m.PluginIndexComponent,
+      ),
+    data: { page: 'plugin-index' },
+    canActivate: [FocusOverlayOpenGuard],
   },
 
   { path: '**', redirectTo: `tag/${TODAY_TAG.id}/tasks` },

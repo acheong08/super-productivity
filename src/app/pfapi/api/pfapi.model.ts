@@ -2,9 +2,8 @@ import { DatabaseAdapter } from './db/database-adapter.model';
 import { ModelCtrl } from './model-ctrl/model-ctrl';
 import { ConflictReason, SyncProviderId, SyncStatus } from './pfapi.const';
 import { DropboxPrivateCfg } from './sync/providers/dropbox/dropbox';
-import { WebdavPrivateCfg } from './sync/providers/webdav/webdav';
-import { LocalFileSyncElectronPrivateCfg } from './sync/providers/local-file-sync/local-file-sync-electron';
 import { IValidation } from 'typia';
+import { WebdavPrivateCfg } from './sync/providers/webdav/webdav.model';
 
 type JSONPrimitive = string | number | boolean | null;
 type Serializable = JSONPrimitive | SerializableObject | SerializableArray;
@@ -52,11 +51,13 @@ export interface MainModelData {
 }
 
 export type CrossModelMigrateFn = <R, F>(fullData: F) => R;
+
 export interface CrossModelMigrations {
   [version: number]: CrossModelMigrateFn;
 }
 
 export type CrossModelBackwardsMigrateFn = <R, F>(fullData: F) => R;
+
 export interface CrossModelBackwardsMigrations {
   [version: number]: CrossModelBackwardsMigrateFn;
 }
@@ -73,7 +74,7 @@ export interface PfapiBaseCfg<T extends ModelCfgs> {
   crossModelMigrations?: CrossModelMigrations;
   crossModelBackwardMigrations?: CrossModelBackwardsMigrations;
   validate?: (data: AllModelData<T>) => IValidation<AllModelData<T>>;
-  repair?: <R>(data: R | unknown) => AllModelData<T>;
+  repair?: <R>(data: R | unknown, errors: IValidation.IError[]) => AllModelData<T>;
 
   // TODO
   // backupInterval?: 'daily';
@@ -87,13 +88,27 @@ export interface RevMap {
 
 export interface MetaFileBase {
   lastUpdate: number;
+  lastUpdateAction?: string;
   revMap: RevMap;
   crossModelVersion: number;
+  lastSyncedAction?: string;
+  // Vector clock fields for improved conflict detection
+  vectorClock?: VectorClock;
+  lastSyncedVectorClock?: VectorClock | null;
+}
+
+export interface VectorClock {
+  [clientId: string]: number;
 }
 
 export interface RemoteMeta extends MetaFileBase {
   mainModelData: MainModelData;
   isFullData?: boolean;
+}
+
+export interface UploadMeta extends Omit<RemoteMeta, 'lastSyncedVectorClock'> {
+  // Vector clock should not be synced, only used locally
+  lastSyncedVectorClock?: null;
 }
 
 export interface LocalMeta extends MetaFileBase {
@@ -148,15 +163,23 @@ export interface SyncProviderPrivateCfgBase {
   encryptKey?: string;
 }
 
+// Local file sync config that works for both platforms
+export interface LocalFileSyncPrivateCfg extends SyncProviderPrivateCfgBase {
+  // Electron specific
+  syncFolderPath?: string;
+  // Android SAF specific
+  safFolderUri?: string;
+}
+
 // TODO better dynamic typing
 export type SyncProviderPrivateCfg =
   | DropboxPrivateCfg
   | WebdavPrivateCfg
-  | LocalFileSyncElectronPrivateCfg;
+  | LocalFileSyncPrivateCfg;
 
 export type PrivateCfgByProviderId<T extends SyncProviderId> =
   T extends SyncProviderId.LocalFile
-    ? LocalFileSyncElectronPrivateCfg
+    ? LocalFileSyncPrivateCfg
     : T extends SyncProviderId.WebDAV
       ? WebdavPrivateCfg
       : T extends SyncProviderId.Dropbox
@@ -172,7 +195,8 @@ export type PfapiEvents =
   | 'metaModelChange'
   | 'providerChange'
   | 'providerPrivateCfgChange'
-  | 'providerReady';
+  | 'providerReady'
+  | 'onBeforeUpdateLocal';
 
 export type SyncStatusChangePayload =
   | 'UNKNOWN_OR_CHANGED'
@@ -193,6 +217,10 @@ export interface PfapiEventPayloadMap {
   providerPrivateCfgChange: {
     providerId: string;
     privateCfg: SyncProviderPrivateCfg;
+  };
+  onBeforeUpdateLocal: {
+    backup: CompleteBackup<any>;
+    modelsToUpdate?: string[];
   };
 }
 

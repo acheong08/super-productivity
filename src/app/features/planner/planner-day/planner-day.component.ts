@@ -4,15 +4,13 @@ import { PlannerDay, ScheduleItem, ScheduleItemType } from '../planner.model';
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import { TaskCopy } from '../../tasks/task.model';
 import { PlannerActions } from '../store/planner.actions';
-import { DAY_STARTS_AT_DEFAULT_H } from '../../../app.constants';
 import { ReminderCopy } from '../../reminder/reminder.model';
 import { millisecondsDiffToRemindOption } from '../../tasks/util/remind-option-to-milliseconds';
-import { TODAY_TAG } from '../../tag/tag.const';
 import { Store } from '@ngrx/store';
 import { MatDialog } from '@angular/material/dialog';
 import { TaskService } from '../../tasks/task.service';
 import { ReminderService } from '../../reminder/reminder.service';
-import { moveTaskInTagList } from '../../tag/store/tag.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { DateService } from '../../../core/date/date.service';
 import { DialogScheduleTaskComponent } from '../dialog-schedule-task/dialog-schedule-task.component';
 import { dateStrToUtcDate } from '../../../util/date-str-to-utc-date';
@@ -24,7 +22,7 @@ import { DatePipe, NgClass } from '@angular/common';
 import { PlannerCalendarEventComponent } from '../planner-calendar-event/planner-calendar-event.component';
 import { MsToStringPipe } from '../../../ui/duration/ms-to-string.pipe';
 import { RoundDurationPipe } from '../../../ui/pipes/round-duration.pipe';
-import { ShortTime2Pipe } from '../../../ui/pipes/short-time2.pipe';
+import { ShortTimeHtmlPipe } from '../../../ui/pipes/short-time-html.pipe';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ShortDate2Pipe } from '../../../ui/pipes/short-date2.pipe';
 import { ProgressBarComponent } from '../../../ui/progress-bar/progress-bar.component';
@@ -46,7 +44,7 @@ import { ProgressBarComponent } from '../../../ui/progress-bar/progress-bar.comp
     DatePipe,
     MsToStringPipe,
     RoundDurationPipe,
-    ShortTime2Pipe,
+    ShortTimeHtmlPipe,
     TranslatePipe,
     ShortDate2Pipe,
     ProgressBarComponent,
@@ -97,10 +95,9 @@ export class PlannerDayComponent {
       if (ev.previousContainer === ev.container) {
         if (this.day.isToday) {
           this._store.dispatch(
-            moveTaskInTagList({
-              tagId: TODAY_TAG.id,
-              fromTaskId: task.id,
+            TaskSharedActions.moveTaskInTodayTagList({
               toTaskId: allItems[ev.currentIndex].id,
+              fromTaskId: task.id,
             }),
           );
         } else {
@@ -123,13 +120,6 @@ export class PlannerDayComponent {
             targetTaskId: allItems[ev.currentIndex]?.id,
           }),
         );
-        if (task.reminderId) {
-          // NOTE: we need to wait a bit to make sure the task is already moved into the proper position
-          // as otherwise unschedule will mess up the order
-          setTimeout(() => {
-            this._taskService.unScheduleTask(task.id, task.reminderId as string);
-          });
-        }
       }
     }
   }
@@ -137,11 +127,9 @@ export class PlannerDayComponent {
   editTaskReminderOrReScheduleIfPossible(task: TaskCopy, newDay?: string): void {
     if (newDay) {
       const newDate = dateStrToUtcDate(newDay);
-      if (task.plannedAt && task.reminderId) {
+      if (task.dueWithTime) {
         this._rescheduleTask(task, newDate);
         return;
-      } else {
-        newDate.setHours(DAY_STARTS_AT_DEFAULT_H, 0, 0, 0);
       }
     }
 
@@ -154,24 +142,15 @@ export class PlannerDayComponent {
   }
 
   private _rescheduleTask(task: TaskCopy, newDate: Date): void {
-    const taskPlannedAtDate = new Date(task.plannedAt as number);
+    const taskPlannedAtDate = new Date(task.dueWithTime as number);
     newDate.setHours(taskPlannedAtDate.getHours(), taskPlannedAtDate.getMinutes(), 0, 0);
     const reminder: ReminderCopy | undefined = task.reminderId
       ? this._reminderService.getById(task.reminderId) || undefined
       : undefined;
     const selectedReminderCfgId = millisecondsDiffToRemindOption(
-      task.plannedAt as number,
+      task.dueWithTime as number,
       reminder?.remindAt,
     );
-    const isToday = new Date().toDateString() === newDate.toDateString();
     this._taskService.scheduleTask(task, newDate.getTime(), selectedReminderCfgId, false);
-    if (isToday) {
-      this._taskService.updateTags(task, [TODAY_TAG.id, ...task.tagIds]);
-    } else {
-      this._taskService.updateTags(
-        task,
-        task.tagIds.filter((tid) => tid !== TODAY_TAG.id),
-      );
-    }
   }
 }

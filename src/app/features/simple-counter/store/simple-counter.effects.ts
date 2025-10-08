@@ -1,35 +1,28 @@
 import { inject, Injectable } from '@angular/core';
+
+import { EMPTY, Observable } from 'rxjs';
+import { map, mergeMap, switchMap, tap } from 'rxjs/operators';
+import { DateService } from 'src/app/core/date/date.service';
+
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { select, Store } from '@ngrx/store';
-import confetti from 'canvas-confetti';
-import {
-  addSimpleCounter,
-  deleteSimpleCounter,
-  deleteSimpleCounters,
-  increaseSimpleCounterCounterToday,
-  setSimpleCounterCounterOff,
-  setSimpleCounterCounterOn,
-  setSimpleCounterCounterToday,
-  updateAllSimpleCounters,
-  updateSimpleCounter,
-  upsertSimpleCounter,
-} from './simple-counter.actions';
-import { map, mergeMap, switchMap, tap, withLatestFrom } from 'rxjs/operators';
-import {
-  selectSimpleCounterById,
-  selectSimpleCounterFeatureState,
-} from './simple-counter.reducer';
-import { SimpleCounterState, SimpleCounterType } from '../simple-counter.model';
-import { GlobalTrackingIntervalService } from '../../../core/global-tracking-interval/global-tracking-interval.service';
-import { SimpleCounterService } from '../simple-counter.service';
-import { EMPTY, Observable } from 'rxjs';
-import { T } from '../../../t.const';
-import { SnackService } from '../../../core/snack/snack.service';
-import { DateService } from 'src/app/core/date/date.service';
-import { getWorklogStr } from '../../../util/get-work-log-str';
-import { getSimpleCounterStreakDuration } from '../get-simple-counter-streak-duration';
 import { TranslateService } from '@ngx-translate/core';
+
+import { ConfettiService } from '../../../core/confetti/confetti.service';
+import { GlobalTrackingIntervalService } from '../../../core/global-tracking-interval/global-tracking-interval.service';
+import { SnackService } from '../../../core/snack/snack.service';
 import { PfapiService } from '../../../pfapi/pfapi.service';
+import { T } from '../../../t.const';
+import { getDbDateStr } from '../../../util/get-db-date-str';
+import { GlobalConfigService } from '../../config/global-config.service';
+import { getSimpleCounterStreakDuration } from '../get-simple-counter-streak-duration';
+import { SimpleCounterType } from '../simple-counter.model';
+import { SimpleCounterService } from '../simple-counter.service';
+import {
+  increaseSimpleCounterCounterToday,
+  updateAllSimpleCounters,
+} from './simple-counter.actions';
+import { selectSimpleCounterById } from './simple-counter.reducer';
 
 @Injectable()
 export class SimpleCounterEffects {
@@ -41,32 +34,10 @@ export class SimpleCounterEffects {
   private _simpleCounterService = inject(SimpleCounterService);
   private _snackService = inject(SnackService);
   private _translateService = inject(TranslateService);
+  private _configService = inject(GlobalConfigService);
+  private readonly _confettiService = inject(ConfettiService);
 
   successFullCountersMap: { [key: string]: boolean } = {};
-
-  updateSimpleCountersStorage$: Observable<unknown> = createEffect(
-    () =>
-      this._actions$.pipe(
-        ofType(
-          updateAllSimpleCounters,
-          setSimpleCounterCounterToday,
-          increaseSimpleCounterCounterToday,
-          setSimpleCounterCounterOn,
-          setSimpleCounterCounterOff,
-          // toggleSimpleCounterCounter,
-
-          // currently not used
-          addSimpleCounter,
-          updateSimpleCounter,
-          upsertSimpleCounter,
-          deleteSimpleCounter,
-          deleteSimpleCounters,
-        ),
-        withLatestFrom(this._store$.pipe(select(selectSimpleCounterFeatureState))),
-        tap(([, featureState]) => this._saveToLs(featureState)),
-      ),
-    { dispatch: false },
-  );
 
   checkTimedCounters$: Observable<unknown> = createEffect(() =>
     this._simpleCounterService.enabledAndToggledSimpleCounters$.pipe(
@@ -113,7 +84,7 @@ export class SimpleCounterEffects {
         ),
         tap((sc) => {
           if (sc && !this.successFullCountersMap[sc.id] && sc.isTrackStreaks) {
-            if (sc.countOnDay[getWorklogStr()] >= (sc.streakMinValue || 0)) {
+            if (sc.countOnDay[getDbDateStr()] >= (sc.streakMinValue || 0)) {
               const streakDuration = getSimpleCounterStreakDuration(sc);
               // eslint-disable-next-line max-len
               const msg = `<strong>${sc.title}</strong> <br />${this._translateService.instant(T.F.SIMPLE_COUNTER.S.GOAL_REACHED_1)}<br /> ${this._translateService.instant(T.F.SIMPLE_COUNTER.S.GOAL_REACHED_2)} <strong>${streakDuration}🔥</strong>`;
@@ -132,6 +103,7 @@ export class SimpleCounterEffects {
                 msg,
               });
               this.successFullCountersMap[sc.id] = true;
+
               this._celebrate();
             }
             // else if (
@@ -154,14 +126,8 @@ export class SimpleCounterEffects {
     { dispatch: false },
   );
 
-  private _saveToLs(simpleCounterState: SimpleCounterState): void {
-    this._pfapiService.m.simpleCounter.save(simpleCounterState, {
-      isUpdateRevAndLastUpdate: true,
-    });
-  }
-
   private _celebrate(): void {
-    confetti({
+    this._confettiService.createConfetti({
       particleCount: 100,
       spread: 70,
       origin: { y: 0.6 },

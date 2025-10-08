@@ -22,10 +22,18 @@ import { TranslateService } from '@ngx-translate/core';
 import { ImexViewService } from '../imex/imex-meta/imex-view.service';
 import { Store } from '@ngrx/store';
 import { selectSyncConfig } from '../features/config/store/global-config.reducer';
-import { distinctUntilChanged, filter, map, shareReplay } from 'rxjs/operators';
+import {
+  concatMap,
+  distinctUntilChanged,
+  filter,
+  map,
+  shareReplay,
+  startWith,
+} from 'rxjs/operators';
 import { fromPfapiEvent, pfapiEventAndInitialAfter } from './pfapi-helper';
 import { DataInitStateService } from '../core/data-init/data-init-state.service';
 import { GlobalProgressBarService } from '../core-ui/global-progress-bar/global-progress-bar.service';
+import { PFLog } from '../core/log';
 
 @Injectable({
   providedIn: 'root',
@@ -52,7 +60,7 @@ export class PfapiService {
   ).pipe(
     shareReplay(1),
     distinctUntilChanged(),
-    // tap((v) => console.log(`isSyncProviderEnabledAndReady$`, v)),
+    // tap((v) => PFLog.log(`isSyncProviderEnabledAndReady$`, v)),
   );
 
   public readonly currentProviderPrivateCfg$ = pfapiEventAndInitialAfter(
@@ -78,14 +86,18 @@ export class PfapiService {
       async () => 'UNKNOWN_OR_CHANGED' as SyncStatusChangePayload,
     ).pipe(shareReplay(1));
 
-  public readonly isSyncInProgress$: Observable<boolean> = this.syncState$.pipe(
+  private readonly _isSyncInProgress$: Observable<boolean> = this.syncState$.pipe(
     filter((state) => state !== 'UNKNOWN_OR_CHANGED'),
     map((state) => state === 'SYNCING'),
+    startWith(false),
     distinctUntilChanged(),
     shareReplay(1),
   );
 
-  private readonly _commonAndLegacySyncConfig$ = this._store.select(selectSyncConfig);
+  private readonly _commonAndLegacySyncConfig$ =
+    this._dataInitStateService.isAllDataLoadedInitially$.pipe(
+      concatMap(() => this._store.select(selectSyncConfig)),
+    );
 
   onLocalMetaUpdate$: Observable<LocalMeta> = fromPfapiEvent(
     this.pf.ev,
@@ -94,9 +106,9 @@ export class PfapiService {
 
   constructor() {
     // TODO check why it gets triggered twice always
-    // this.syncState$.subscribe((v) => console.log(`syncState$`, v));
-    this.isSyncInProgress$.subscribe((v) => {
-      // console.log('isSyncInProgress$', v);
+    // this.syncState$.subscribe((v) => PFLog.log(`syncState$`, v));
+    this._isSyncInProgress$.subscribe((v) => {
+      // PFLog.log('isSyncInProgress$', v);
       if (v) {
         this._globalProgressBarService.countUp('SYNC');
       } else {
@@ -105,17 +117,19 @@ export class PfapiService {
     });
 
     this._commonAndLegacySyncConfig$.subscribe(async (cfg) => {
-      // TODO handle android webdav
-      console.log('SEEEEEEEEEEEET', cfg.isEnabled, cfg.syncProvider, cfg);
-
-      this.pf.setActiveSyncProvider(
-        cfg.isEnabled ? (cfg.syncProvider as unknown as SyncProviderId) : null,
-      );
-      if (cfg.isEnabled) {
-        this.pf.setEncryptAndCompressCfg({
-          isEncrypt: cfg.isEncryptionEnabled,
-          isCompress: cfg.isCompressionEnabled,
-        });
+      try {
+        this.pf.setActiveSyncProvider(
+          cfg.isEnabled ? (cfg.syncProvider as unknown as SyncProviderId) : null,
+        );
+        if (cfg.isEnabled) {
+          this.pf.setEncryptAndCompressCfg({
+            isEncrypt: !!cfg.isEncryptionEnabled,
+            isCompress: !!cfg.isCompressionEnabled,
+          });
+        }
+      } catch (e) {
+        PFLog.err(e);
+        alert('Unable to set sync provider. Please check your settings.');
       }
     });
   }
@@ -124,11 +138,12 @@ export class PfapiService {
     data: AppDataCompleteNew | CompleteBackup<PfapiAllModelCfg>,
     isSkipLegacyWarnings: boolean = false,
     isSkipReload: boolean = false,
+    isForceConflict: boolean = false,
   ): Promise<void> {
     try {
       this._imexViewService.setDataImportInProgress(true);
       if ('crossModelVersion' in data && 'timestamp' in data) {
-        await this.pf.importCompleteBackup(data, isSkipLegacyWarnings);
+        await this.pf.importCompleteBackup(data, isSkipLegacyWarnings, isForceConflict);
       } else {
         await this.pf.importCompleteBackup(
           {
@@ -139,6 +154,7 @@ export class PfapiService {
             crossModelVersion: 0,
           },
           isSkipLegacyWarnings,
+          isForceConflict,
         );
       }
 

@@ -22,7 +22,7 @@ export const TODAY_TAG: Tag = {
     primary: DEFAULT_TODAY_TAG_COLOR,
     // backgroundImageDark: 'assets/bg/NIGHT_manuel-will.jpg',
     backgroundImageDark: '',
-    isDisableBackgroundGradient: false,
+    isDisableBackgroundTint: true,
   },
 };
 
@@ -39,21 +39,6 @@ export const DEFAULT_TAG: Tag = {
   },
 };
 
-export const NO_LIST_TAG: Tag = {
-  color: null,
-  created: Date.now(),
-  ...WORK_CONTEXT_DEFAULT_COMMON,
-  icon: 'question_mark',
-  title: 'no list scheduled',
-  id: 'NO_LIST',
-  theme: {
-    ...WORK_CONTEXT_DEFAULT_THEME,
-    primary: DEFAULT_TODAY_TAG_COLOR,
-    backgroundImageDark: '',
-    isDisableBackgroundGradient: false,
-  },
-};
-
 // TODO translate
 export const URGENT_TAG: Tag = {
   color: null,
@@ -66,7 +51,7 @@ export const URGENT_TAG: Tag = {
     ...WORK_CONTEXT_DEFAULT_THEME,
     primary: '#c618e1',
     backgroundImageDark: '',
-    isDisableBackgroundGradient: false,
+    isDisableBackgroundTint: false,
   },
 };
 
@@ -81,7 +66,7 @@ export const IMPORTANT_TAG: Tag = {
     ...WORK_CONTEXT_DEFAULT_THEME,
     primary: '#e11826',
     backgroundImageDark: '',
-    isDisableBackgroundGradient: false,
+    isDisableBackgroundTint: false,
   },
 };
 
@@ -94,6 +79,6 @@ export const IN_PROGRESS_TAG: Tag = {
   theme: {
     ...WORK_CONTEXT_DEFAULT_THEME,
     backgroundImageDark: '',
-    isDisableBackgroundGradient: false,
+    isDisableBackgroundTint: false,
   },
 };

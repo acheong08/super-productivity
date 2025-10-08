@@ -20,7 +20,7 @@ import { getDateRangeForWeek } from '../../util/get-date-range-for-week';
 import { fadeAnimation, fadeInSlowAnimation } from '../../ui/animations/fade.ani';
 import { T } from '../../t.const';
 import { WorkContextService } from '../work-context/work-context.service';
-import { SearchQueryParams } from '../search-bar/search-bar.model';
+import { SearchQueryParams } from '../../pages/search-page/search-page.model';
 import { Subscription } from 'rxjs';
 import { Store } from '@ngrx/store';
 import { selectAllProjectColorsAndTitles } from '../project/store/project.selectors';
@@ -36,6 +36,7 @@ import { NumberToMonthPipe } from '../../ui/pipes/number-to-month.pipe';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PfapiService } from '../../pfapi/pfapi.service';
 import { TaskArchiveService } from '../time-tracking/task-archive.service';
+import { Log } from '../../core/log';
 
 @Component({
   selector: 'worklog',
@@ -141,22 +142,22 @@ export class WorklogComponent implements AfterViewInit, OnDestroy {
               .filter((v) => !!v);
           }
 
-          console.log('RESTORE', task, subTasks);
+          Log.log('RESTORE', task, subTasks);
           this._taskService.restoreTask(task, (subTasks || []) as Task[]);
           this._router.navigate(['/active/tasks']);
         }
       });
   }
 
-  sortWorklogItems(a: any, b: any): number {
+  sortWorklogItems(a: { key: number }, b: { key: number }): number {
     return b.key - a.key;
   }
 
-  sortWorklogItemsReverse(a: any, b: any): number {
+  sortWorklogItemsReverse(a: { key: number }, b: { key: number }): number {
     return a.key - b.key;
   }
 
-  trackByKey(i: number, val: { key: any; val: any }): number {
+  trackByKey(i: number, val: { key: number; val: unknown }): number {
     return val.key;
   }
 

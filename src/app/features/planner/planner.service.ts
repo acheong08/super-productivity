@@ -1,40 +1,25 @@
-import { Injectable, inject } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { combineLatest, Observable, of } from 'rxjs';
-import {
-  distinctUntilChanged,
-  first,
-  map,
-  shareReplay,
-  switchMap,
-  tap,
-} from 'rxjs/operators';
-import { selectPlannedTasksById } from '../tasks/store/task.selectors';
+import { first, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { selectAllTasksWithDueTime } from '../tasks/store/task.selectors';
 import { Store } from '@ngrx/store';
 import { CalendarIntegrationService } from '../calendar-integration/calendar-integration.service';
 import { PlannerDay } from './planner.model';
-import {
-  selectAllDuePlannedDay,
-  selectAllDuePlannedOnDay,
-  selectPlannerDays,
-  selectTaskIdPlannedDayMap,
-} from './store/planner.selectors';
-import { ReminderService } from '../reminder/reminder.service';
-import { TaskPlanned } from '../tasks/task.model';
-import { selectAllTaskRepeatCfgs } from '../task-repeat-cfg/store/task-repeat-cfg.reducer';
+import { selectPlannerDays } from './store/planner.selectors';
+import { TaskWithDueTime } from '../tasks/task.model';
 import { DateService } from '../../core/date/date.service';
-import { fastArrayCompare } from '../../util/fast-array-compare';
 import { GlobalTrackingIntervalService } from '../../core/global-tracking-interval/global-tracking-interval.service';
 import { selectTodayTaskIds } from '../work-context/store/work-context.selectors';
-import { getWorklogStr } from '../../util/get-work-log-str';
-import { dateStrToUtcDate } from '../../util/date-str-to-utc-date';
 import { msToString } from '../../ui/duration/ms-to-string.pipe';
+import { getDbDateStr } from '../../util/get-db-date-str';
+import { selectAllTaskRepeatCfgs } from '../task-repeat-cfg/store/task-repeat-cfg.selectors';
+import { Log } from '../../core/log';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PlannerService {
   private _store = inject(Store);
-  private _reminderService = inject(ReminderService);
   private _calendarIntegrationService = inject(CalendarIntegrationService);
   private _dateService = inject(DateService);
   private _globalTrackingIntervalService = inject(GlobalTrackingIntervalService);
@@ -42,7 +27,7 @@ export class PlannerService {
   includedWeekDays$ = of([0, 1, 2, 3, 4, 5, 6]);
 
   daysToShow$ = this._globalTrackingIntervalService.todayDateStr$.pipe(
-    tap((val) => console.log('daysToShow$', val)),
+    tap((val) => Log.log('daysToShow$', val)),
     switchMap(() => this.includedWeekDays$),
     map((includedWeekDays) => {
       const today = new Date().getTime();
@@ -59,51 +44,8 @@ export class PlannerService {
     }),
   );
 
-  allScheduledTasks$: Observable<TaskPlanned[]> = this._reminderService.reminders$.pipe(
-    switchMap((reminders) => {
-      const tids = reminders
-        .filter((reminder) => reminder.type === 'TASK')
-        .map((reminder) => reminder.relatedId);
-      return this._store.select(selectPlannedTasksById, { ids: tids }) as Observable<
-        TaskPlanned[]
-      >;
-    }),
-    distinctUntilChanged(fastArrayCompare),
-  );
-
-  plannerDayForAllDueToday$: Observable<PlannerDay> = combineLatest([
-    this._store.select(selectAllTaskRepeatCfgs),
-    this._calendarIntegrationService.icalEvents$,
-    this.allScheduledTasks$,
-    this._globalTrackingIntervalService.todayDateStr$,
-  ]).pipe(
-    switchMap(([taskRepeatCfgs, icalEvents, allTasksPlanned, todayStr]) =>
-      this._store.select(
-        selectAllDuePlannedDay(taskRepeatCfgs, icalEvents, allTasksPlanned, todayStr),
-      ),
-    ),
-  );
-
-  plannerDayForAllDueTomorrow$: Observable<PlannerDay> = combineLatest([
-    this._store.select(selectAllTaskRepeatCfgs),
-    this._calendarIntegrationService.icalEvents$,
-    this.allScheduledTasks$,
-    this._globalTrackingIntervalService.todayDateStr$,
-  ]).pipe(
-    switchMap(([taskRepeatCfgs, icalEvents, allTasksPlanned, todayStr]) => {
-      const tomorrow = dateStrToUtcDate(todayStr);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = getWorklogStr(tomorrow);
-      return this._store.select(
-        selectAllDuePlannedOnDay(
-          taskRepeatCfgs,
-          icalEvents,
-          allTasksPlanned,
-          tomorrowStr,
-          todayStr,
-        ),
-      );
-    }),
+  allDueWithTimeTasks$: Observable<TaskWithDueTime[]> = this._store.select(
+    selectAllTasksWithDueTime,
   );
 
   // TODO this needs to be more performant
@@ -113,7 +55,7 @@ export class PlannerService {
         this._store.select(selectAllTaskRepeatCfgs),
         this._store.select(selectTodayTaskIds),
         this._calendarIntegrationService.icalEvents$,
-        this.allScheduledTasks$,
+        this.allDueWithTimeTasks$,
         this._globalTrackingIntervalService.todayDateStr$,
       ]).pipe(
         switchMap(
@@ -133,15 +75,25 @@ export class PlannerService {
     ),
     // for better performance
     // TODO better solution, gets called very often
-    // tap((val) => console.log('days$', val)),
-    // tap((val) => console.log('days$ SIs', val[0]?.scheduledIItems)),
+    // tap((val) => Log.log('days$', val)),
+    // tap((val) => Log.log('days$ SIs', val[0]?.scheduledIItems)),
     shareReplay(1),
   );
+  tomorrow$ = this.days$.pipe(
+    map((days) => {
+      const tomorrow = new Date(this._dateService.todayStr());
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (days[1]?.dayDate === getDbDateStr(tomorrow)) {
+        return days[1];
+      }
+      return null;
+    }),
+  );
 
-  plannedTaskDayMap$: Observable<{ [taskId: string]: string }> = this._store
-    .select(selectTaskIdPlannedDayMap)
-    // make this more performant by sharing stream
-    .pipe(shareReplay(1));
+  // plannedTaskDayMap$: Observable<{ [taskId: string]: string }> = this._store
+  //   .select(selectTaskIdPlannedDayMap)
+  //   // make this more performant by sharing stream
+  //   .pipe(shareReplay(1));
 
   getDayOnce$(dayStr: string): Observable<PlannerDay | undefined> {
     return this.days$.pipe(

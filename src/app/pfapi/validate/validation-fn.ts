@@ -4,6 +4,7 @@ import {
   TimeTrackingState,
 } from '../../features/time-tracking/time-tracking.model';
 import { ProjectState } from '../../features/project/project.model';
+import { MenuTreeState } from '../../features/menu-tree/store/menu-tree.model';
 import { TaskState } from '../../features/tasks/task.model';
 import { createValidate } from 'typia';
 import { TagState } from '../../features/tag/tag.model';
@@ -20,6 +21,11 @@ import { ObstructionState } from '../../features/metric/obstruction/obstruction.
 import { GlobalConfigState } from '../../features/config/global-config.model';
 import { AppDataCompleteNew } from '../pfapi-config';
 import { ValidationResult } from '../api/pfapi.model';
+import { PFLog } from '../../core/log';
+import {
+  PluginMetaDataState,
+  PluginUserDataState,
+} from '../../plugins/plugin-persistence.model'; // for more speed
 
 // for more speed
 // type DataToValidate = Omit<AppDataCompleteNew, 'archiveOld' | 'archiveYoung'>;
@@ -35,6 +41,7 @@ const _validateTask = createValidate<TaskState>();
 const _validateTaskRepeatCfg = createValidate<TaskRepeatCfgState>();
 const _validateArchive = createValidate<ArchiveModel>();
 const _validateProject = createValidate<ProjectState>();
+const _validateMenuTree = createValidate<MenuTreeState>();
 const _validateTag = createValidate<TagState>();
 const _validateSimpleCounter = createValidate<SimpleCounterState>();
 const _validateNote = createValidate<NoteState>();
@@ -47,6 +54,8 @@ const _validateImprovement = createValidate<ImprovementState>();
 const _validateObstruction = createValidate<ObstructionState>();
 const _validateGlobalConfig = createValidate<GlobalConfigState>();
 const _validateTimeTracking = createValidate<TimeTrackingState>();
+const _validatePluginUserData = createValidate<PluginUserDataState>();
+const _validatePluginMetadata = createValidate<PluginMetaDataState>();
 
 export const validateAllData = <R>(
   d: AppDataCompleteNew | R,
@@ -80,6 +89,7 @@ export const appDataValidators: {
   archiveYoung: <R>(d: R | ArchiveModel) => validateArchiveModel(d),
   archiveOld: <R>(d: R | ArchiveModel) => validateArchiveModel(d),
   project: <R>(d: R | ProjectState) => _wrapValidate(_validateProject(d), d, true),
+  menuTree: <R>(d: R | MenuTreeState) => _wrapValidate(_validateMenuTree(d), d, false),
   tag: <R>(d: R | TagState) => _wrapValidate(_validateTag(d), d, true),
   simpleCounter: <R>(d: R | SimpleCounterState) =>
     _wrapValidate(_validateSimpleCounter(d), d, true),
@@ -95,12 +105,16 @@ export const appDataValidators: {
     _wrapValidate(_validateObstruction(d), d, true),
   globalConfig: <R>(d: R | GlobalConfigState) => _wrapValidate(_validateGlobalConfig(d)),
   timeTracking: <R>(d: R | TimeTrackingState) => _wrapValidate(_validateTimeTracking(d)),
+  pluginUserData: <R>(d: R | PluginUserDataState) =>
+    _wrapValidate(_validatePluginUserData(d)),
+  pluginMetadata: <R>(d: R | PluginMetaDataState) =>
+    _wrapValidate(_validatePluginMetadata(d)),
 } as const;
 
 const validateArchiveModel = <R>(d: ArchiveModel | R): ValidationResult<ArchiveModel> => {
   const r = _validateArchive(d);
   if (!r.success) {
-    console.log('Validation failed', (r as any)?.errors, r.data);
+    PFLog.log('Validation failed', (r as any)?.errors, r.data);
   }
   if (!isEntityStateConsistent((d as ArchiveModel).task)) {
     return {
@@ -125,7 +139,7 @@ const _wrapValidate = <R>(
   isEntityCheck = false,
 ): ValidationResult<R> => {
   if (!result.success) {
-    console.log('Validation failed', (result as any)?.errors, result);
+    PFLog.log('Validation failed', (result as any)?.errors, result, d);
   }
   if (isEntityCheck && !isEntityStateConsistent(d as any)) {
     return {

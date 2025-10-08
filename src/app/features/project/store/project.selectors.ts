@@ -2,17 +2,24 @@ import { Project, ProjectState } from '../project.model';
 import { createFeatureSelector, createSelector } from '@ngrx/store';
 import { exists } from '../../../util/exists';
 import { PROJECT_FEATURE_NAME, projectAdapter } from './project.reducer';
+import { INBOX_PROJECT } from '../project.const';
 
 export const selectProjectFeatureState =
   createFeatureSelector<ProjectState>(PROJECT_FEATURE_NAME);
 const { selectAll } = projectAdapter.getSelectors();
 export const selectAllProjects = createSelector(selectProjectFeatureState, selectAll);
+export const selectAllProjectsExceptInbox = createSelector(selectAllProjects, (ps) =>
+  ps.filter((p) => p.id !== INBOX_PROJECT.id),
+);
 export const selectUnarchivedProjects = createSelector(selectAllProjects, (projects) =>
   projects.filter((p) => !p.isArchived),
 );
 export const selectUnarchivedVisibleProjects = createSelector(
   selectAllProjects,
-  (projects) => projects.filter((p) => !p.isArchived && !p.isHiddenFromMenu),
+  (projects) =>
+    projects.filter(
+      (p) => !p.isArchived && !p.isHiddenFromMenu && p.id !== INBOX_PROJECT.id,
+    ),
 );
 export const selectUnarchivedHiddenProjectIds = createSelector(
   selectAllProjects,
@@ -24,7 +31,7 @@ export const selectArchivedProjects = createSelector(selectAllProjects, (project
   projects.filter((p) => p.isArchived),
 );
 export const selectAllProjectColors = createSelector(selectAllProjects, (projects) =>
-  projects.reduce((prev, cur) => ({ ...prev, [cur.id]: cur.theme.primary }), {}),
+  projects.reduce((prev, cur) => ({ ...prev, [cur.id]: cur.theme?.primary }), {}),
 );
 export const selectAllProjectColorsAndTitles = createSelector(
   selectAllProjects,
@@ -32,7 +39,7 @@ export const selectAllProjectColorsAndTitles = createSelector(
     projects.reduce(
       (prev, cur) => ({
         ...prev,
-        [cur.id]: { color: cur.theme.primary, title: cur.title },
+        [cur.id]: { color: cur.theme?.primary, title: cur.title },
       }),
       {},
     ),

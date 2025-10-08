@@ -1,12 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import {
-  addTask,
-  deleteTask,
-  moveToOtherProject,
-  undoDeleteTask,
-  updateTask,
-} from './task.actions';
+import { undoDeleteTask } from './task.actions';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { select, Store } from '@ngrx/store';
 import {
   distinctUntilChanged,
@@ -36,6 +31,7 @@ import { EMPTY } from 'rxjs';
 import { selectProjectById } from '../../project/store/project.selectors';
 import { Router } from '@angular/router';
 import { WorkContextType } from '../../work-context/work-context.model';
+import { INBOX_PROJECT } from '../../project/project.const';
 
 @Injectable()
 export class TaskUiEffects {
@@ -49,10 +45,10 @@ export class TaskUiEffects {
   private _globalConfigService = inject(GlobalConfigService);
   private _workContextService = inject(WorkContextService);
 
-  taskCreatedSnack$: any = createEffect(
+  taskCreatedSnack$ = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(addTask),
+        ofType(TaskSharedActions.addTask),
         tap(({ task }) =>
           this._snackService.open({
             type: 'SUCCESS',
@@ -67,10 +63,10 @@ export class TaskUiEffects {
     { dispatch: false },
   );
 
-  snackDelete$: any = createEffect(
+  snackDelete$ = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(deleteTask),
+        ofType(TaskSharedActions.deleteTask),
         tap(({ task }) => {
           this._snackService.open({
             translateParams: {
@@ -86,7 +82,7 @@ export class TaskUiEffects {
     { dispatch: false },
   );
 
-  timeEstimateExceeded$: any = createEffect(
+  timeEstimateExceeded$ = createEffect(
     () =>
       this._store$.pipe(select(selectConfigFeatureState)).pipe(
         switchMap((globalCfg) =>
@@ -117,7 +113,7 @@ export class TaskUiEffects {
     { dispatch: false },
   );
 
-  timeEstimateExceededDismissBanner$: any = createEffect(
+  timeEstimateExceededDismissBanner$ = createEffect(
     () =>
       this._store$.pipe(select(selectConfigFeatureState)).pipe(
         switchMap((globalCfg) =>
@@ -142,10 +138,10 @@ export class TaskUiEffects {
     { dispatch: false },
   );
 
-  taskDoneSound$: any = createEffect(
+  taskDoneSound$ = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(updateTask),
+        ofType(TaskSharedActions.updateTask),
         filter(({ task: { changes } }) => !!changes.isDone),
         withLatestFrom(
           this._workContextService.flatDoneTodayNr$,
@@ -160,7 +156,7 @@ export class TaskUiEffects {
   goToProjectSnack$ = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(moveToOtherProject),
+        ofType(TaskSharedActions.moveToOtherProject),
         filter(
           ({ targetProjectId }) =>
             targetProjectId !== this._workContextService.activeWorkContextId,
@@ -197,7 +193,7 @@ export class TaskUiEffects {
   goToProjectOnCreation$ = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(addTask),
+        ofType(TaskSharedActions.addTask),
         filter(
           ({ task }) =>
             !!task.projectId &&
@@ -205,7 +201,7 @@ export class TaskUiEffects {
               ? task.projectId !== this._workContextService.activeWorkContextId
               : !task.tagIds.includes(
                   this._workContextService.activeWorkContextId as string,
-                )),
+                ) && task.projectId !== INBOX_PROJECT.id),
         ),
         switchMap(({ task }) =>
           this._store$.select(selectProjectById, { id: task.projectId as string }).pipe(

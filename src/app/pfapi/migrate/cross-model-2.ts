@@ -1,6 +1,5 @@
 import { AppDataCompleteLegacy } from '../../imex/sync/sync.model';
 import { AppDataCompleteNew } from '../pfapi-config';
-import { dirtyDeepCopy } from '../../util/dirtyDeepCopy';
 import { CrossModelMigrateFn, ImpossibleError } from '../api';
 import { TTWorkContextSessionMap } from '../../features/time-tracking/time-tracking.model';
 import { ProjectCopy } from '../../features/project/project.model';
@@ -13,15 +12,19 @@ import {
   TimeSpentOnDayCopy,
 } from '../../features/tasks/task.model';
 import { Dictionary } from '@ngrx/entity';
-import { BoardsState } from '../../features/boards/store/boards.reducer';
+import {
+  BoardsState,
+  initialBoardsState,
+} from '../../features/boards/store/boards.reducer';
 import { DEFAULT_BOARD_CFG, DEFAULT_PANEL_CFG } from '../../features/boards/boards.const';
+import { PFLog } from '../../core/log';
 
 export const crossModelMigration2: CrossModelMigrateFn = ((
   fullData: AppDataCompleteLegacy,
 ): AppDataCompleteNew => {
+  PFLog.log('____________________Migrate2__________________');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { lastLocalSyncModelChange, lastArchiveUpdate, taskArchive, ...copy } =
-    dirtyDeepCopy(fullData);
+  const { lastLocalSyncModelChange, lastArchiveUpdate, taskArchive, ...copy } = fullData;
 
   if (
     (fullData as any as AppDataCompleteNew).archiveYoung &&
@@ -31,10 +34,10 @@ export const crossModelMigration2: CrossModelMigrateFn = ((
     Object.keys((fullData as any as AppDataCompleteNew).timeTracking.project).length
   ) {
     // If time tracking is already migrated, return the original data
-    console.warn('already migrated despite old model version!!!');
+    PFLog.err('already migrated despite old model version!!!');
     return fullData as any as AppDataCompleteNew;
   }
-  console.log(':::::::::::crossModelMigration2::::::::::::::');
+  PFLog.log(':::::::::::crossModelMigration2::::::::::::::');
 
   // Migrate project time tracking data
   const projectTimeTracking: TTWorkContextSessionMap = Object.keys(
@@ -124,27 +127,25 @@ export const crossModelMigration2: CrossModelMigrateFn = ((
     },
     {} as TTWorkContextSessionMap,
   );
-  console.log('________________________________________________________', {
+  PFLog.log('________________________________________________________', {
     copy,
     projectTimeTracking,
     tagTimeTracking,
   });
 
+  // TODO check if there is a better way to avoid problems with returning only the old model
+  // @ts-ignore
   return {
     ...copy,
-    // TODO remove
-    // taskArchive,
     timeTracking: {
       project: projectTimeTracking,
       tag: tagTimeTracking,
-      // lastFlush: 0,
     },
     archiveYoung: {
       task: migrateTaskArchive(taskArchive),
       timeTracking: {
         project: {},
         tag: {},
-        // lastFlush: 0,
       },
       lastTimeTrackingFlush: 0,
     },
@@ -153,7 +154,6 @@ export const crossModelMigration2: CrossModelMigrateFn = ((
       timeTracking: {
         project: {},
         tag: {},
-        // lastFlush: 0,
       },
       lastTimeTrackingFlush: 0,
     },
@@ -164,6 +164,10 @@ export const crossModelMigration2: CrossModelMigrateFn = ((
 
 // TODO remove later
 const migrateBoards = (boardsState: BoardsState): BoardsState => {
+  if (!boardsState) {
+    return initialBoardsState;
+  }
+
   return {
     ...boardsState,
     boardCfgs: boardsState.boardCfgs.map((boardCfg) => {

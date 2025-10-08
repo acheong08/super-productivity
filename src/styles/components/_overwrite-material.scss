@@ -1,16 +1,18 @@
+@use '../mixins/_media-queries';
+
 :root {
-  //--mdc-fab-small-container-elevation-shadow: $whiteframe-shadow-4dp;
+  //--mat-fab-small-container-elevation-shadow: var(--whiteframe-shadow-4dp);
   --mat-dialog-container-small-max-width: 94vw;
   --mat-dialog-container-max-width: 85vw;
   --mat-menu-item-label-text-size: 14px;
 }
 
 * {
-  --mdc-chip-container-shape-radius: 4px !important;
-  --mdc-chip-elevated-container-color: transparent !important;
-  //--mdc-chip-outline-color: var(--mdc-chip-outline-color, var(--mat-sys-outline)) !important;
-  --mdc-chip-outline-color: rgba(125, 125, 125, 0.4) !important;
-  --mdc-chip-outline-width: 1px !important;
+  --mat-chip-container-shape-radius: 4px !important;
+  --mat-chip-elevated-container-color: transparent !important;
+  //--mat-chip-outline-color: var(--mat-chip-outline-color, var(--mat-sys-outline)) !important;
+  --mat-chip-outline-color: var(--chip-outline-color) !important;
+  --mat-chip-outline-width: 1px !important;
 }
 
 .mat-drawer.mat-drawer-side {
@@ -34,7 +36,7 @@
 }
 
 .cdk-overlay-pane.mat-mdc-dialog-panel {
-  @include mq(xs, max) {
+  @include media-queries.mq(xs, max) {
     max-width: 96vw !important;
   }
 }
@@ -52,7 +54,7 @@ body .mat-mdc-dialog-surface {
 }
 
 .mat-mdc-dialog-panel {
-  @include mq(xs) {
+  @include media-queries.mq(xs) {
     //--mat-dialog-container-min-width: 350px;
   }
 }
@@ -77,8 +79,8 @@ body .mat-mdc-dialog-surface {
   width: 100% !important;
   max-width: none !important;
 
-  @include mq(xs) {
-    margin: $s * 2;
+  @include media-queries.mq(xs) {
+    margin: var(--s2);
     max-height: 95vh !important;
   }
 }
@@ -86,7 +88,7 @@ body .mat-mdc-dialog-surface {
 // FORMS
 // --------
 .mat-mdc-form-field {
-  margin-bottom: $s * 2;
+  margin-bottom: var(--s2);
 }
 
 // needs to be global cause of cdk overlay
@@ -109,10 +111,18 @@ mat-option.isDone {
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+  plugin-icon {
+    margin-right: 14px;
+  }
+
+  span {
+    margin-right: auto;
+  }
 }
 
 .mat-mdc-icon-button.mat-mdc-button-base {
-  --mdc-icon-button-state-layer-size: 40px;
+  --mat-icon-button-state-layer-size: 40px;
 }
 
 //.mat-mdc-mini-fab.mat-mdc-mini-fab.mat-mdc-mini-fab,
@@ -173,8 +183,7 @@ mat-icon.mat-icon[svgicon] {
 }
 
 .cdk-drag-preview {
-  background: #fff !important;
-  box-shadow: $whiteframe-shadow-12dp;
+  box-shadow: var(--whiteframe-shadow-8dp) !important;
   cursor: grabbing !important;
   overflow: hidden;
 
@@ -183,9 +192,7 @@ mat-icon.mat-icon[svgicon] {
     cursor: grabbing !important;
   }
 
-  @include darkTheme(true) {
-    background: $dark24 !important;
-  }
+  background: var(--bg-lightest) !important;
 }
 
 .cdk-drag-placeholder {
@@ -194,7 +201,7 @@ mat-icon.mat-icon[svgicon] {
 }
 
 .cdk-drop-list-dragging {
-  outline: 1px dashed $c-primary;
+  outline: 1px dashed var(--c-primary);
   border-radius: 6px;
   cursor: grabbing;
 }
@@ -204,8 +211,8 @@ mat-icon.mat-icon[svgicon] {
 }
 
 .cdk-drop-list-receiving {
-  outline: 1px dashed $c-primary;
-  border-color: $c-primary;
+  outline: 1px dashed var(--c-primary);
+  border-color: var(--c-primary);
   border-radius: 6px;
   cursor: grabbing;
   //border: 2px solid green;
@@ -221,12 +228,28 @@ mat-icon.mat-icon[svgicon] {
 }
 
 task.cdk-drag-preview .box {
-  @include darkTheme(true) {
-    background: $dark24 !important;
-  }
+  background: var(--bg-lightest) !important;
 }
 
 // MAT TOOLTIP
 mat-tooltip-component {
   pointer-events: none;
+}
+
+// SNACK
+// Move snack bar above mobile bottom nav for all touch devices
+@include media-queries.mq(xs, max) {
+  // Apply to all touch devices, not just when mobile bottom nav is shown
+  body.hasMobileBottomNav .mat-mdc-snack-bar-handset {
+    pointer-events: none;
+  }
+  body.hasMobileBottomNav mat-snack-bar-container {
+    margin-bottom: calc(var(--bottom-nav-height) + 24px) !important;
+    pointer-events: auto;
+    transition: 150ms margin;
+  }
+  body.hasMobileBottomNav.isAddTaskBarOpen mat-snack-bar-container {
+    margin-bottom: calc(var(--bottom-nav-height) + 48px) !important;
+    pointer-events: auto;
+  }
 }

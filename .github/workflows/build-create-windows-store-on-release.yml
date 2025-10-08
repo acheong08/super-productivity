@@ -12,11 +12,14 @@ on:
 jobs:
   windows-store-artifact:
     runs-on: windows-latest
+    env:
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
 
     if: '!github.event.release.prerelease'
 
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       # required because setting via env.TZ does not work on windows
@@ -26,7 +29,7 @@ jobs:
           timezoneWindows: 'W. Europe Standard Time'
 
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       # work around for npm installs from git+https://github.com/johannesjo/J2M.git
@@ -60,8 +63,10 @@ jobs:
         #  if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm i
 
+      - run: npm run env # Generate env.generated.ts
+
       - name: Lint
-        run: npm run lint:ci
+        run: npm run lint
 
       - name: Test Unit
         run: npm run test
@@ -80,4 +85,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WinStoreRelease
-          path: app-builds/*.appx
+          path: .tmp/app-builds/*.appx
+#      - name: Upload to Microsoft Store
+#        if: startsWith(github.ref, 'refs/tags/v')
+#        uses: isaacrlevin/windows-store-action@1.0
+#        with:
+#          tenant-id: ${{ secrets.AZURE_AD_TENANT_ID }}
+#          client-id: ${{ secrets.AZURE_AD_CLIENT_ID }}
+#          client-secret: ${{ secrets.AZURE_AD_CLIENT_SECRET }}
+#          app-id: ${{ secrets.MICROSOFT_STORE_APP_ID }}
+#          package-path: '.tmp/app-builds/*.appx'
+#          skip-polling: false

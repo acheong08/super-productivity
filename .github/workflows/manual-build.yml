@@ -10,14 +10,17 @@ on:
 jobs:
   windows-bin:
     runs-on: windows-latest
+    env:
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
 
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       # required because setting via env.TZ does not work on windows
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       # work around for npm installs from git+https://github.com/johannesjo/J2M.git
@@ -58,13 +61,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WinBuildStuff
-          path: app-builds/*.exe
+          path: .tmp/app-builds/*.exe
 
   mac-bin:
     runs-on: macos-latest
+    env:
+      UNSPLASH_KEY: ${{ secrets.UNSPLASH_KEY }}
+      UNSPLASH_CLIENT_ID: ${{ secrets.UNSPLASH_CLIENT_ID }}
 
     steps:
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       - name: Echo is Release
@@ -73,7 +79,7 @@ jobs:
           IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       # work around for npm installs from git+https://github.com/johannesjo/J2M.git
@@ -112,8 +118,10 @@ jobs:
           mkdir -p ~/private_keys/
           echo '${{ secrets.mac_api_key }}' > ~/private_keys/AuthKey_${{ secrets.mac_api_key_id }}.p8
 
+      - run: npm run env # Generate env.generated.ts
+
       - name: Lint
-        run: npm run lint:ci
+        run: npm run lint
 
       - name: Test Unit
         run: npm run test
@@ -153,4 +161,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dmg
-          path: app-builds/*.dmg
+          path: .tmp/app-builds/*.dmg

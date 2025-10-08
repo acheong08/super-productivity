@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
+import typia from 'typia';
 import { first, map, take, withLatestFrom } from 'rxjs/operators';
-import { inject, Injectable } from '@angular/core';
+import { computed, inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   ArchiveTask,
@@ -18,31 +19,18 @@ import {
 import { select, Store } from '@ngrx/store';
 import {
   addSubTask,
-  addTask,
-  convertToMainTask,
-  deleteTask,
-  deleteTasks,
   moveSubTask,
   moveSubTaskDown,
   moveSubTaskToBottom,
   moveSubTaskToTop,
   moveSubTaskUp,
-  moveToArchive_,
-  moveToOtherProject,
-  removeTagsForAllTasks,
   removeTimeSpent,
-  reScheduleTask,
-  restoreTask,
   roundTimeSpentForDay,
-  scheduleTask,
   setCurrentTask,
   setSelectedTask,
   toggleStart,
   toggleTaskHideSubTasks,
-  unScheduleTask,
   unsetCurrentTask,
-  updateTask,
-  updateTaskTags,
   updateTaskUi,
 } from './store/task.actions';
 import { IssueProviderKey } from '../issue/issue.model';
@@ -51,7 +39,6 @@ import {
   selectAllTasks,
   selectCurrentTask,
   selectCurrentTaskId,
-  selectCurrentTaskOrParentWithData,
   selectCurrentTaskParentOrCurrent,
   selectIsTaskDataLoaded,
   selectMainTasksWithoutTag,
@@ -68,8 +55,6 @@ import {
   selectTaskWithSubTasksByRepeatConfigId,
 } from './store/task.selectors';
 import { RoundTimeOption } from '../project/project.model';
-import { TagService } from '../tag/tag.service';
-import { TODAY_TAG } from '../tag/tag.const';
 import { WorkContextService } from '../work-context/work-context.service';
 import { WorkContextType } from '../work-context/work-context.model';
 import {
@@ -93,17 +78,25 @@ import {
   moveProjectTaskUpInBacklogList,
 } from '../project/store/project.actions';
 import { Update } from '@ngrx/entity';
-import { DateService } from 'src/app/core/date/date.service';
+import { RootState } from '../../root-store/root-state';
+import { DateService } from '../../core/date/date.service';
 import { TimeTrackingActions } from '../time-tracking/store/time-tracking.actions';
 import { ArchiveService } from '../time-tracking/archive.service';
 import { TaskArchiveService } from '../time-tracking/task-archive.service';
+import { TODAY_TAG } from '../tag/tag.const';
+import { TaskSharedActions } from '../../root-store/meta/task-shared.actions';
+import { getDbDateStr } from '../../util/get-db-date-str';
+import { INBOX_PROJECT } from '../project/project.const';
+import { GlobalConfigService } from '../config/global-config.service';
+import { TaskLog } from '../../core/log';
+import { devError } from '../../util/dev-error';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TaskService {
-  private readonly _store = inject<Store<any>>(Store);
-  private readonly _tagService = inject(TagService);
+  private readonly _store = inject<Store<RootState>>(Store);
   private readonly _workContextService = inject(WorkContextService);
   private readonly _imexMetaService = inject(ImexViewService);
   private readonly _timeTrackingService = inject(GlobalTrackingIntervalService);
@@ -111,13 +104,13 @@ export class TaskService {
   private readonly _router = inject(Router);
   private readonly _archiveService = inject(ArchiveService);
   private readonly _taskArchiveService = inject(TaskArchiveService);
+  private readonly _globalConfigService = inject(GlobalConfigService);
 
-  // Currently used in idle service TODO remove
-  currentTaskId: string | null = null;
   currentTaskId$: Observable<string | null> = this._store.pipe(
     select(selectCurrentTaskId),
     // NOTE: we can't use share here, as we need the last emitted value
   );
+  currentTaskId = toSignal(this.currentTaskId$, { initialValue: null });
 
   currentTask$: Observable<Task | null> = this._store.pipe(
     select(selectCurrentTask),
@@ -129,31 +122,28 @@ export class TaskService {
     // NOTE: we can't use share here, as we need the last emitted value
   );
 
-  selectedTaskId$: Observable<string | null> = this._store.pipe(
-    select(selectSelectedTaskId),
-    // NOTE: we can't use share here, as we need the last emitted value
+  selectedTaskId = toSignal(
+    this._store.pipe(
+      select(selectSelectedTaskId),
+      // NOTE: we can't use share here, as we need the last emitted value
+    ),
+    { initialValue: null },
   );
 
-  selectedTask$: Observable<TaskWithSubTasks> = this._store.pipe(
+  selectedTask$: Observable<TaskWithSubTasks | null> = this._store.pipe(
     select(selectSelectedTask),
     // NOTE: we can't use share here, as we need the last emitted value
   );
 
-  firstStartableTask$: Observable<Task | undefined> =
-    this._workContextService.startableTasksForActiveContext$.pipe(
-      map((tasks) => tasks[0]),
-    );
+  firstStartableTask = computed(
+    () => this._workContextService.startableTasksForActiveContext()[0],
+  );
 
   taskDetailPanelTargetPanel$: Observable<TaskDetailTargetPanel | null | undefined> =
     this._store.pipe(
       select(selectTaskDetailTargetPanel),
       // NOTE: we can't use share here, as we need the last emitted value
     );
-
-  currentTaskOrCurrentParent$: Observable<TaskWithSubTasks | null> = this._store.pipe(
-    select(selectCurrentTaskOrParentWithData),
-    // NOTE: we can't use share here, as we need the last emitted value
-  );
 
   isTaskDataLoaded$: Observable<boolean> = this._store.pipe(
     select(selectIsTaskDataLoaded),
@@ -192,8 +182,6 @@ export class TaskService {
       },
       true,
     );
-
-    this.currentTaskId$.subscribe((val) => (this.currentTaskId = val));
 
     // time tracking
     this._timeTrackingService.tick$
@@ -234,17 +222,19 @@ export class TaskService {
       throw new Error('No task with parent task given');
     }
     const parentTask = await this.getByIdOnce$(task.parentId).toPromise();
-    const { activeId, activeType } =
-      await this._workContextService.activeWorkContextTypeAndId$
-        .pipe(first())
-        .toPromise();
+    const activeContext = await this._workContextService.activeWorkContext$
+      .pipe(first())
+      .toPromise();
 
-    const isParentOnSameList =
-      activeType === WorkContextType.PROJECT
-        ? parentTask.projectId === activeId
-        : parentTask.tagIds.includes(activeId);
+    if (!activeContext) {
+      throw new Error('No active work context');
+    }
 
-    if (!isParentOnSameList) {
+    // Check if parent task is actually visible in the current context
+    const isParentVisibleInCurrentContext = activeContext.taskIds.includes(task.parentId);
+
+    if (!isParentVisibleInCurrentContext) {
+      // Navigate to the context where the parent task belongs
       if (parentTask.projectId) {
         await this._router.navigate([`project/${parentTask.projectId}/tasks`]);
       } else if (parentTask.tagIds[0]) {
@@ -266,7 +256,7 @@ export class TaskService {
     this._workContextService.startableTasksForActiveContext$
       .pipe(take(1))
       .subscribe((tasks) => {
-        if (tasks[0] && !this.currentTaskId) {
+        if (tasks[0] && !this.currentTaskId()) {
           this.setCurrentId(tasks[0].id);
         }
       });
@@ -294,8 +284,10 @@ export class TaskService {
       workContextId,
     });
 
+    TaskLog.log(task, additional);
+
     this._store.dispatch(
-      addTask({
+      TaskSharedActions.addTask({
         task,
         workContextId,
         workContextType,
@@ -309,69 +301,50 @@ export class TaskService {
   async addAndSchedule(
     title: string | null,
     additional: Partial<Task> = {},
-    plannedAt: number,
+    due: number,
     remindCfg: TaskReminderOptionId = TaskReminderOptionId.AtStart,
   ): Promise<string> {
     const id = this.add(title, undefined, additional, undefined);
     const task = await this.getByIdOnce$(id).toPromise();
-    this.scheduleTask(task, plannedAt, remindCfg);
+    this.scheduleTask(task, due, remindCfg);
     return id;
   }
 
   remove(task: TaskWithSubTasks): void {
-    this._store.dispatch(deleteTask({ task }));
+    this._store.dispatch(TaskSharedActions.deleteTask({ task }));
   }
 
   removeMultipleTasks(taskIds: string[]): void {
-    this._store.dispatch(deleteTasks({ taskIds }));
+    this._store.dispatch(TaskSharedActions.deleteTasks({ taskIds }));
   }
 
   update(id: string, changedFields: Partial<Task>): void {
     this._store.dispatch(
-      updateTask({
+      TaskSharedActions.updateTask({
         task: { id, changes: changedFields },
       }),
     );
   }
 
-  addTodayTag(t: Task): void {
-    this.updateTags(t, [TODAY_TAG.id, ...t.tagIds]);
-  }
-
   updateTags(task: Task, newTagIds: string[]): void {
     this._store.dispatch(
-      updateTaskTags({
-        task,
-        newTagIds: unique(newTagIds),
+      TaskSharedActions.updateTask({
+        task: {
+          id: task.id,
+          changes: {
+            tagIds: unique(newTagIds),
+          },
+        },
       }),
     );
   }
 
   removeTagsForAllTask(tagsToRemove: string[]): void {
     this._store.dispatch(
-      removeTagsForAllTasks({
+      TaskSharedActions.removeTagsForAllTasks({
         tagIdsToRemove: tagsToRemove,
       }),
     );
-  }
-
-  // TODO: Move logic away from service class (to actions)?
-  // TODO: Should this reside in tagService?
-  purgeUnusedTags(tagIds: string[]): void {
-    tagIds.forEach((tagId) => {
-      this.getTasksByTag(tagId)
-        .pipe(take(1))
-        .subscribe((tasks) => {
-          console.log(
-            `Tag is present on ${tasks.length} tasks => ${
-              tasks.length ? 'keeping...' : 'deleting...'
-            }`,
-          );
-          if (tasks.length === 0 && tagId !== TODAY_TAG.id) {
-            this._tagService.removeTag(tagId);
-          }
-        });
-    });
   }
 
   updateUi(id: string, changes: Partial<Task>): void {
@@ -618,13 +591,21 @@ export class TaskService {
     }
   }
 
-  addSubTaskTo(parentId: string): void {
+  addSubTaskTo(parentId: string, additional: Partial<Task> = {}): string {
+    const task = this.createNewTaskWithDefaults({
+      title: additional.title || '',
+      additional: { dueDay: additional.dueDay || undefined, ...additional },
+    });
+    console.log(task);
+
     this._store.dispatch(
       addSubTask({
-        task: this.createNewTaskWithDefaults({ title: '' }),
+        task,
         parentId,
       }),
     );
+
+    return task.id;
   }
 
   addTimeSpent(
@@ -675,41 +656,90 @@ export class TaskService {
     }
   }
 
-  moveToArchive(tasks: TaskWithSubTasks | TaskWithSubTasks[]): void {
+  async moveToArchive(tasks: TaskWithSubTasks | TaskWithSubTasks[]): Promise<void> {
+    // Add comprehensive validation and logging
+    if (!tasks) {
+      console.error('[TaskService] moveToArchive called with null/undefined tasks');
+      return;
+    }
+
     if (!Array.isArray(tasks)) {
+      console.warn('[TaskService] moveToArchive converting single task to array', tasks);
       tasks = [tasks];
     }
+
+    // Double-check it's an array after conversion
+    if (!Array.isArray(tasks)) {
+      console.error('[TaskService] Failed to convert tasks to array:', tasks);
+      throw new Error('moveToArchive: tasks could not be converted to array');
+    }
+
+    TaskLog.log('[TaskService] moveToArchive called with:', {
+      count: tasks.length,
+      taskIds: tasks.map((t) => t?.id || 'undefined'),
+      tasksType: typeof tasks,
+      isArray: Array.isArray(tasks),
+    });
+
     // NOTE: we only update real parents since otherwise we move sub-tasks without their parent into the archive
-    const subTasks = tasks.filter((t) => t.parentId);
+    const subTasks = tasks.filter((t) => t?.parentId);
+    const parentTasks = tasks.filter((t) => t && !t.parentId);
+
+    TaskLog.log('[TaskService] Filtered tasks:', {
+      parentTasks: parentTasks.map((t) => t.id),
+      subTasks: subTasks.map((t) => t.id),
+    });
+
     if (subTasks.length) {
       if (this._workContextService.activeWorkContextType !== WorkContextType.TAG) {
-        throw new Error('Trying to move sub tasks into archive for project');
+        // this should be handled by moving parentTasks to archive
+        devError('Trying to move sub tasks into archive for project');
+      } else {
+        // when on a tag such as today, we simply remove the tag instead of attempting to move to archive
+        const tagToRemove = this._workContextService.activeWorkContextId;
+        TaskLog.log('[TaskService] Removing tag from subtasks:', tagToRemove);
+        subTasks.forEach((st) => {
+          this.updateTags(
+            st,
+            st.tagIds.filter((tid) => tid !== tagToRemove),
+          );
+        });
       }
-
-      // when on a tag such as today, we simply remove the tag instead of attempting to move to archive
-      const tagToRemove = this._workContextService.activeWorkContextId;
-      subTasks.forEach((st) => {
-        this.updateTags(
-          st,
-          st.tagIds.filter((tid) => tid !== tagToRemove),
-        );
-      });
     }
-    this._store.dispatch(moveToArchive_({ tasks: tasks.filter((t) => !t.parentId) }));
-    this._archiveService.moveTasksToArchiveAndFlushArchiveIfDue(tasks);
+
+    if (parentTasks.length) {
+      TaskLog.log('[TaskService] Dispatching moveToArchive action for parent tasks');
+      // Only move parent tasks to archive, never subtasks
+      this._store.dispatch(TaskSharedActions.moveToArchive({ tasks: parentTasks }));
+      // Only archive parent tasks to prevent orphaned subtasks
+      TaskLog.log('[TaskService] Calling archive service to persist tasks');
+      await this._archiveService.moveTasksToArchiveAndFlushArchiveIfDue(parentTasks);
+      TaskLog.log('[TaskService] Archive operation completed successfully');
+    } else {
+      TaskLog.log('[TaskService] No parent tasks to archive');
+    }
   }
 
   moveToProject(task: TaskWithSubTasks, projectId: string): void {
     if (!!task.parentId) {
       throw new Error('Wrong task model');
     }
-    this._store.dispatch(moveToOtherProject({ task, targetProjectId: projectId }));
+    this._store.dispatch(
+      TaskSharedActions.moveToOtherProject({ task, targetProjectId: projectId }),
+    );
   }
 
-  moveToCurrentWorkContext(task: TaskWithSubTasks): void {
+  moveToCurrentWorkContext(task: TaskWithSubTasks | Task): void {
     if (this._workContextService.activeWorkContextType === WorkContextType.TAG) {
-      this.updateTags(task, [this._workContextService.activeWorkContextId as string]);
+      if (this._workContextService.activeWorkContextId === TODAY_TAG.id) {
+        this._store.dispatch(TaskSharedActions.planTasksForToday({ taskIds: [task.id] }));
+      } else {
+        this.updateTags(task, [this._workContextService.activeWorkContextId as string]);
+      }
     } else {
+      if (!('subTasks' in task)) {
+        throw new Error('Wrong task model');
+      }
       this.moveToProject(task, this._workContextService.activeWorkContextId as string);
     }
   }
@@ -719,7 +749,7 @@ export class TaskService {
   }
 
   restoreTask(task: Task, subTasks: Task[]): void {
-    this._store.dispatch(restoreTask({ task, subTasks }));
+    this._store.dispatch(TaskSharedActions.restoreTask({ task, subTasks }));
   }
 
   async roundTimeSpentForDayEverywhere({
@@ -767,15 +797,15 @@ export class TaskService {
   // --------
   scheduleTask(
     task: Task | TaskWithSubTasks,
-    plannedAt: number,
+    due: number,
     remindCfg: TaskReminderOptionId,
     isMoveToBacklog: boolean = false,
   ): void {
     this._store.dispatch(
-      scheduleTask({
+      TaskSharedActions.scheduleTaskWithTime({
         task,
-        plannedAt,
-        remindAt: remindOptionToMilliseconds(plannedAt, remindCfg),
+        dueWithTime: due,
+        remindAt: remindOptionToMilliseconds(due, remindCfg),
         isMoveToBacklog,
       }),
     );
@@ -783,33 +813,25 @@ export class TaskService {
 
   reScheduleTask({
     task,
-    plannedAt,
+    due,
     remindCfg,
     isMoveToBacklog = false,
   }: {
     task: Task;
-    plannedAt: number;
+    due: number;
     remindCfg: TaskReminderOptionId;
     isMoveToBacklog: boolean;
   }): void {
     this._store.dispatch(
-      reScheduleTask({
+      TaskSharedActions.reScheduleTaskWithTime({
         task,
-        plannedAt,
-        remindAt: remindOptionToMilliseconds(plannedAt, remindCfg),
+        dueWithTime: due,
+        remindAt: remindOptionToMilliseconds(due, remindCfg),
         isMoveToBacklog,
       }),
     );
   }
 
-  unScheduleTask(taskId: string, reminderId?: string, isSkipToast?: boolean): void {
-    if (!taskId) {
-      throw new Error('No task id');
-    }
-    this._store.dispatch(unScheduleTask({ id: taskId, reminderId, isSkipToast }));
-  }
-
-  // HELPER
   // ------
   getByIdOnce$(id: string): Observable<Task> {
     return this._store.pipe(select(selectTaskById, { id }), take(1));
@@ -879,7 +901,13 @@ export class TaskService {
 
   async convertToMainTask(task: Task): Promise<void> {
     const parent = await this.getByIdOnce$(task.parentId as string).toPromise();
-    this._store.dispatch(convertToMainTask({ task, parentTagIds: parent.tagIds }));
+    this._store.dispatch(
+      TaskSharedActions.convertToMainTask({
+        task,
+        parentTagIds: parent.tagIds,
+        isPlanForToday: this._workContextService.activeWorkContextId === TODAY_TAG.id,
+      }),
+    );
   }
 
   // GLOBAL TASK MODEL STUFF
@@ -909,7 +937,11 @@ export class TaskService {
 
   async getByIdFromEverywhere(id: string, isArchive?: boolean): Promise<Task> {
     if (isArchive === undefined) {
-      return this.getByIdOnce$(id).toPromise() || this._taskArchiveService.getById(id);
+      const task = await this.getByIdOnce$(id).toPromise();
+      if (task) {
+        return task;
+      }
+      return await this._taskArchiveService.getById(id);
     }
 
     if (isArchive) {
@@ -1034,7 +1066,7 @@ export class TaskService {
     workContextType?: WorkContextType;
     workContextId?: string;
   }): Task {
-    return {
+    const d1 = {
       // NOTE needs to be created every time
       ...DEFAULT_TASK,
       created: Date.now(),
@@ -1043,14 +1075,41 @@ export class TaskService {
 
       ...(workContextType === WorkContextType.PROJECT
         ? { projectId: workContextId }
-        : {}),
+        : {
+            projectId:
+              this._globalConfigService.cfg()?.misc.defaultProjectId || INBOX_PROJECT.id,
+          }),
 
       tagIds:
-        workContextType === WorkContextType.TAG && !additional.parentId
+        workContextType === WorkContextType.TAG &&
+        !additional.parentId &&
+        workContextId !== TODAY_TAG.id
           ? [workContextId]
           : [],
 
+      ...(workContextId === TODAY_TAG.id &&
+      !additional.parentId &&
+      !additional.dueWithTime &&
+      !('dueDay' in additional)
+        ? { dueDay: getDbDateStr() }
+        : {}),
+
       ...additional,
     };
+
+    if (!d1.projectId) {
+      d1.projectId =
+        workContextType === WorkContextType.PROJECT
+          ? workContextId
+          : this._globalConfigService.cfg()?.misc.defaultProjectId || INBOX_PROJECT.id;
+    }
+
+    // Validate that we have a valid task before returning
+    typia.assert<Task>(d1);
+
+    if (d1.projectId === undefined) {
+      return { ...d1, projectId: INBOX_PROJECT.id };
+    }
+    return d1;
   }
 }

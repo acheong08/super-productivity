@@ -7,8 +7,9 @@ import {
 } from '../../work-context/work-context.const';
 import { Tag } from '../../tag/tag.model';
 import { Project } from '../../project/project.model';
-import { getWorklogStr } from '../../../util/get-work-log-str';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 import { ShortSyntaxConfig } from '../../config/global-config.model';
+import { TaskLog } from '../../../core/log';
 
 export interface ShortSyntaxTag {
   title: string;
@@ -54,7 +55,7 @@ export const shortSyntaxToTags = ({
     }
     shortSyntaxTags.push({
       title: project.title,
-      color: project.theme.primary || DEFAULT_PROJECT_COLOR,
+      color: project.theme?.primary || DEFAULT_PROJECT_COLOR,
       projectId: r.projectId,
       icon: 'list',
     });
@@ -63,10 +64,10 @@ export const shortSyntaxToTags = ({
   if (r.taskChanges.timeEstimate) {
     let time = msToString(r.taskChanges.timeEstimate);
 
-    if (r.taskChanges.timeSpentOnDay && r.taskChanges.timeSpentOnDay[getWorklogStr()]) {
-      time = msToString(r.taskChanges.timeSpentOnDay[getWorklogStr()]) + '/' + time;
+    if (r.taskChanges.timeSpentOnDay && r.taskChanges.timeSpentOnDay[getDbDateStr()]) {
+      time = msToString(r.taskChanges.timeSpentOnDay[getDbDateStr()]) + '/' + time;
     }
-    console.log(time);
+    TaskLog.log(time);
 
     shortSyntaxTags.push({
       title: time,
@@ -74,10 +75,10 @@ export const shortSyntaxToTags = ({
       icon: 'timer',
     });
   }
-  if (r.taskChanges.plannedAt) {
+  if (r.taskChanges.dueWithTime) {
     let displayedDayStr: string;
-    const { plannedAt } = r.taskChanges;
-    const plannedDate = new Date(plannedAt);
+    const { dueWithTime } = r.taskChanges;
+    const plannedDate = new Date(dueWithTime);
     const hour = plannedDate.getHours();
     const minute = plannedDate.getMinutes();
     const hh = hour < 10 ? `0${hour}` : hour.toString();
@@ -136,7 +137,7 @@ export const shortSyntaxToTags = ({
       }
       shortSyntaxTags.push({
         title: tag.title,
-        color: tag.color || tag.theme.primary || DEFAULT_TAG_COLOR,
+        color: tag.color || tag.theme?.primary || DEFAULT_TAG_COLOR,
         icon: tag.icon || 'style',
       });
     });

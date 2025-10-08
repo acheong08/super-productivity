@@ -1,146 +1,113 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import {
   hideAddTaskBar,
   hideIssuePanel,
-  hideNotesAndAddTaskPanel,
-  hideSearchBar,
-  hideSideNav,
+  hideNonTaskSidePanelContent,
+  hideTaskViewCustomizerPanel,
   showAddTaskBar,
-  showSearchBar,
-  toggleAddTaskBar,
   toggleIssuePanel,
-  toggleSearchBar,
   toggleShowNotes,
-  toggleSideNav,
+  toggleTaskViewCustomizerPanel,
 } from './store/layout.actions';
-import { BehaviorSubject, EMPTY, merge, Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { select, Store } from '@ngrx/store';
 import {
   LayoutState,
   selectIsShowAddTaskBar,
   selectIsShowIssuePanel,
   selectIsShowNotes,
-  selectIsShowSearchBar,
-  selectIsShowSideNav,
+  selectIsShowTaskViewCustomizerPanel,
 } from './store/layout.reducer';
-import { filter, map, switchMap, withLatestFrom } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { NavigationStart, Router } from '@angular/router';
-import { WorkContextService } from '../../features/work-context/work-context.service';
-import { selectMiscConfig } from '../../features/config/store/global-config.reducer';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { IS_MOBILE } from '../../util/is-mobile';
+import { IS_TOUCH_PRIMARY } from '../../util/is-mouse-primary';
 
-const NAV_ALWAYS_VISIBLE = 1200;
-const NAV_OVER_RIGHT_PANEL_NEXT = 800;
-const BOTH_OVER = 720;
-const XS_MAX = 599;
+const XS_BREAKPOINT = 600;
+const XXXS_BREAKPOINT = 398;
+const XS_MEDIA_QUERY = `(max-width: ${XS_BREAKPOINT}px)`;
+const initialXsMatch =
+  typeof window !== 'undefined' ? window.matchMedia(XS_MEDIA_QUERY).matches : false;
 
 @Injectable({
   providedIn: 'root',
 })
 export class LayoutService {
   private _store$ = inject<Store<LayoutState>>(Store);
-  private _router = inject(Router);
-  private _workContextService = inject(WorkContextService);
   private _breakPointObserver = inject(BreakpointObserver);
+  private _previouslyFocusedElement: HTMLElement | null = null;
 
-  isScreenXs$: Observable<boolean> = this._breakPointObserver
-    .observe([`(max-width: ${XS_MAX}px)`])
-    .pipe(map((result) => result.matches));
+  readonly isShowMobileBottomNav = IS_MOBILE && IS_TOUCH_PRIMARY;
 
-  isShowAddTaskBar$: Observable<boolean> = this._store$.pipe(
+  // Signal to trigger sidebar focus
+  private _focusSideNavTrigger = signal(0);
+  readonly focusSideNavTrigger = this._focusSideNavTrigger.asReadonly();
+
+  // Observable versions (needed for shepherd)
+  readonly isShowAddTaskBar$: Observable<boolean> = this._store$.pipe(
     select(selectIsShowAddTaskBar),
   );
-  isShowSearchBar$: Observable<boolean> = this._store$.pipe(
-    select(selectIsShowSearchBar),
-  );
-
-  isNavAlwaysVisible$: Observable<boolean> = this._breakPointObserver
-    .observe([`(min-width: ${NAV_ALWAYS_VISIBLE}px)`])
-    .pipe(map((result) => result.matches));
-  isRightPanelNextNavOver$: Observable<boolean> = this._breakPointObserver
-    .observe([`(min-width: ${NAV_OVER_RIGHT_PANEL_NEXT}px)`])
-    .pipe(map((result) => result.matches));
-  isRightPanelOver$: Observable<boolean> = this._breakPointObserver
-    .observe([`(min-width: ${BOTH_OVER}px)`])
-    .pipe(map((result) => !result.matches));
-  isNavOver$: Observable<boolean> = this._store$.select(selectMiscConfig).pipe(
-    switchMap((miscCfg) => {
-      if (miscCfg.isUseMinimalNav) {
-        return of(false);
-      }
-      return this.isRightPanelNextNavOver$.pipe(map((v) => !v));
-    }),
-  );
-  isScrolled$: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
-  private _isShowSideNav$: Observable<boolean> = this._store$.pipe(
-    select(selectIsShowSideNav),
-  );
-  isShowSideNav$: Observable<boolean> = this._isShowSideNav$.pipe(
-    switchMap((isShow) => {
-      return isShow ? of(isShow) : this.isNavAlwaysVisible$;
-    }),
-  );
-
-  private _isShowNotes$: Observable<boolean> = this._store$.pipe(
-    select(selectIsShowNotes),
-  );
-  isShowNotes$: Observable<boolean> = this._isShowNotes$.pipe();
-
-  private _isShowIssuePanel$: Observable<boolean> = this._store$.pipe(
+  readonly isShowIssuePanel$: Observable<boolean> = this._store$.pipe(
     select(selectIsShowIssuePanel),
   );
-  isShowIssuePanel$: Observable<boolean> = this._isShowIssuePanel$.pipe();
 
-  constructor() {
-    this.isNavOver$
-      .pipe(
-        switchMap((isNavOver) =>
-          isNavOver
-            ? merge(
-                this._router.events.pipe(filter((ev) => ev instanceof NavigationStart)),
-                this._workContextService.onWorkContextChange$,
-              ).pipe(
-                withLatestFrom(this._isShowSideNav$),
-                filter(([, isShowSideNav]) => isShowSideNav),
-              )
-            : EMPTY,
-        ),
-      )
-      .subscribe(() => {
-        this.hideSideNav();
-      });
-  }
+  readonly selectedTimeView = signal<'week' | 'month'>('week');
+  readonly isScrolled = signal<boolean>(false);
+  readonly isShowAddTaskBar = toSignal(this.isShowAddTaskBar$, { initialValue: false });
+
+  readonly isXs = toSignal(
+    this._breakPointObserver
+      .observe(XS_MEDIA_QUERY)
+      .pipe(map((result) => result.matches)),
+    { initialValue: initialXsMatch },
+  );
+
+  readonly isXxxs = toSignal(
+    this._breakPointObserver
+      .observe(`(max-width: ${XXXS_BREAKPOINT}px)`)
+      .pipe(map((result) => result.matches)),
+    { initialValue: false },
+  );
+
+  // private _isWorkViewUrl(url: string): boolean {
+  //   return url.includes('/active/') || url.includes('/tag/') || url.includes('/project/');
+  // }
+
+  readonly isShowNotes = toSignal(this._store$.pipe(select(selectIsShowNotes)), {
+    initialValue: false,
+  });
+
+  readonly isShowTaskViewCustomizerPanel = toSignal(
+    this._store$.pipe(select(selectIsShowTaskViewCustomizerPanel)),
+    { initialValue: false },
+  );
+
+  readonly isShowIssuePanel = toSignal(this.isShowIssuePanel$, { initialValue: false });
 
   showAddTaskBar(): void {
+    // Store currently focused element if it's a task
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement && activeElement.id && activeElement.id.startsWith('t-')) {
+      this._previouslyFocusedElement = activeElement;
+    }
     this._store$.dispatch(showAddTaskBar());
   }
 
   hideAddTaskBar(): void {
     this._store$.dispatch(hideAddTaskBar());
-  }
-
-  toggleAddTaskBar(): void {
-    this._store$.dispatch(toggleAddTaskBar());
-  }
-
-  showSearchBar(): void {
-    this._store$.dispatch(showSearchBar());
-  }
-
-  hideSearchBar(): void {
-    this._store$.dispatch(hideSearchBar());
-  }
-
-  toggleSearchBar(): void {
-    this._store$.dispatch(toggleSearchBar());
-  }
-
-  toggleSideNav(): void {
-    this._store$.dispatch(toggleSideNav());
-  }
-
-  hideSideNav(): void {
-    this._store$.dispatch(hideSideNav());
+    // Restore focus to previously focused task after a small delay
+    if (this._previouslyFocusedElement) {
+      window.setTimeout(() => {
+        if (
+          this._previouslyFocusedElement &&
+          document.body.contains(this._previouslyFocusedElement)
+        ) {
+          this._previouslyFocusedElement.focus();
+          this._previouslyFocusedElement = null;
+        }
+      });
+    }
   }
 
   toggleNotes(): void {
@@ -148,7 +115,7 @@ export class LayoutService {
   }
 
   hideNotes(): void {
-    this._store$.dispatch(hideNotesAndAddTaskPanel());
+    this._store$.dispatch(hideNonTaskSidePanelContent());
   }
 
   toggleAddTaskPanel(): void {
@@ -157,5 +124,18 @@ export class LayoutService {
 
   hideAddTaskPanel(): void {
     this._store$.dispatch(hideIssuePanel());
+  }
+
+  toggleTaskViewCustomizerPanel(): void {
+    this._store$.dispatch(toggleTaskViewCustomizerPanel());
+  }
+
+  hideTaskViewCustomizerPanel(): void {
+    this._store$.dispatch(hideTaskViewCustomizerPanel());
+  }
+
+  focusSideNav(): void {
+    // Trigger the focus signal - components listening to this signal will handle the focus
+    this._focusSideNavTrigger.update((value) => value + 1);
   }
 }

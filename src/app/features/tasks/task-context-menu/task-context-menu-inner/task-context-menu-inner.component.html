@@ -21,35 +21,14 @@
     class="quick-access"
     (keydown)="quickAccessKeydown($event)"
   >
-    <!--  <button-->
-    <!--    mat-icon-button-->
-    <!--    (click)="quickAccessBtnClick(01)"-->
-    <!--    [matTooltip]="'Schedule Today'"-->
-    <!--  >-->
-    <!--    <mat-icon>history</mat-icon>-->
-    <!--  </button>-->
-
-    @if (isShowRemoveFromToday()) {
-      <button
-        mat-icon-button
-        tabindex="0"
-        (click)="quickAccessBtnClick(0)"
-        [matTooltip]="T.F.TASK.D_SCHEDULE_TASK.QA_REMOVE_TODAY | translate"
-      >
-        <mat-icon svgIcon="remove_today"></mat-icon>
-      </button>
-    }
-    <!-- -->
-    @if (isShowAddToToday()) {
-      <button
-        mat-icon-button
-        tabindex="0"
-        (click)="quickAccessBtnClick(1)"
-        [matTooltip]="T.F.TASK.D_SCHEDULE_TASK.QA_TODAY | translate"
-      >
-        <mat-icon>wb_sunny</mat-icon>
-      </button>
-    }
+    <button
+      mat-icon-button
+      tabindex="0"
+      (click)="quickAccessBtnClick(1)"
+      [matTooltip]="T.F.TASK.D_SCHEDULE_TASK.QA_TODAY | translate"
+    >
+      <mat-icon>wb_sunny</mat-icon>
+    </button>
 
     <button
       mat-icon-button
@@ -79,7 +58,7 @@
       mat-icon-button
       tabindex="0"
       [matTooltip]="
-        (task.reminderId
+        (task.dueWithTime || task.dueDay
           ? (T.F.TASK.CMP.EDIT_SCHEDULED | translate)
           : (T.F.TASK.CMP.SCHEDULE | translate)) +
         (kb.taskSchedule ? ' [' + kb.taskSchedule + ']' : '')
@@ -89,9 +68,7 @@
       <mat-icon>today</mat-icon>
     </button>
 
-    @if (
-      task.reminderId || ((plannerService.plannedTaskDayMap$ | async) || {})[task.id]
-    ) {
+    @if (task.dueWithTime || task.dueDay) {
       <button
         mat-icon-button
         tabindex="0"
@@ -171,22 +148,7 @@
       <span class="key-i">{{ kb.taskToggleDone }}</span>
     </button>
   }
-  @if (
-    isAdvancedControls() &&
-    IS_TOUCH_PRIMARY &&
-    !task.parentId &&
-    !task.isDone &&
-    isTodayTag &&
-    (task.projectId || task.tagIds.length > 1)
-  ) {
-    <button
-      (click)="removeFromMyDay()"
-      mat-menu-item
-    >
-      <mat-icon svgIcon="remove_today"></mat-icon>
-      {{ T.F.TASK.CMP.REMOVE_FROM_MY_DAY | translate }}
-    </button>
-  }
+
   @if (!task.subTaskIds.length) {
     <button
       (click)="estimateTime()"
@@ -229,6 +191,18 @@
       <span class="menuItemLeft">
         <mat-icon>arrow_upward</mat-icon>
         {{ T.F.TASK.CMP.MOVE_TO_TOP | translate }}
+      </span>
+    </button>
+  }
+  <!-- Only show the duplicate command if it is a parent unfinished task -->
+  @if (isAdvancedControls() && !task.parentId && !task.isDone) {
+    <button
+      (click)="duplicate()"
+      mat-menu-item
+    >
+      <span class="menuItemLeft">
+        <mat-icon>file_copy</mat-icon>
+        {{ T.F.TASK.CMP.DUPLICATE | translate }}
       </span>
     </button>
   }
@@ -310,7 +284,7 @@
     >
       <span class="menuItemLeft">
         <mat-icon>arrow_upward</mat-icon>
-        {{ T.F.TASK.CMP.MOVE_TO_TODAY | translate }}
+        {{ T.F.TASK.CMP.MOVE_TO_REGULAR | translate }}
       </span>
       <span class="key-i">{{ kb.moveToTodaysTasks }}</span>
     </button>
@@ -319,6 +293,7 @@
   <button
     [matMenuTriggerFor]="tagMenu"
     mat-menu-item
+    menuTouchFix
   >
     <span class="menuItemLeft">
       <mat-icon>label</mat-icon>
@@ -331,6 +306,7 @@
     <button
       [matMenuTriggerFor]="projectMenu"
       mat-menu-item
+      menuTouchFix
     >
       <span class="menuItemLeft">
         <mat-icon>forward</mat-icon>
@@ -382,6 +358,7 @@
       <button
         (click)="moveTaskToProject(project.id)"
         mat-menu-item
+        menuTouchFix
       >
         {{ project.title }}
       </button>
@@ -398,11 +375,12 @@
       <button
         (click)="toggleTag(tag.id)"
         mat-menu-item
+        menuTouchFix
       >
         @if (task.tagIds.includes(tag.id)) {
-          <mat-icon>check_box</mat-icon>
+          <mat-icon class="check-ico">check_box</mat-icon>
         } @else {
-          <mat-icon>check_box_outline_blank</mat-icon>
+          <mat-icon class="check-ico">check_box_outline_blank</mat-icon>
         }
         <mat-icon
           [style.color]="tag.color || tag.theme.primary"
@@ -415,6 +393,7 @@
     <button
       mat-menu-item
       (click)="openAddNewTag()"
+      menuTouchFix
     >
       <mat-icon>add</mat-icon>
       {{ T.F.TAG.TTL.ADD_NEW_TAG | translate }}

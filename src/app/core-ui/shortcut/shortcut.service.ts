@@ -1,6 +1,7 @@
-import { inject, Injectable, NgZone } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { IS_ELECTRON } from '../../app.constants';
 import { checkKeyCombo } from '../../util/check-key-combo';
+import { isInputElement } from '../../util/dom-element';
 import { GlobalConfigService } from '../../features/config/global-config.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LayoutService } from '../layout/layout.service';
@@ -11,13 +12,13 @@ import { IPC } from '../../../../electron/shared-with-frontend/ipc-events.const'
 import { UiHelperService } from '../../features/ui-helper/ui-helper.service';
 import { WorkContextService } from '../../features/work-context/work-context.service';
 import { WorkContextType } from '../../features/work-context/work-context.model';
-import { SnackService } from '../../core/snack/snack.service';
-import { TranslateService } from '@ngx-translate/core';
 import { Store } from '@ngrx/store';
 import { showFocusOverlay } from '../../features/focus-mode/store/focus-mode.actions';
 import { SyncWrapperService } from '../../imex/sync/sync-wrapper.service';
 import { first, mapTo, switchMap } from 'rxjs/operators';
 import { fromEvent, merge, Observable, of } from 'rxjs';
+import { PluginBridgeService } from '../../plugins/plugin-bridge.service';
+import { TaskShortcutService } from '../../features/tasks/task-shortcut.service';
 
 @Injectable({
   providedIn: 'root',
@@ -29,13 +30,12 @@ export class ShortcutService {
   private _matDialog = inject(MatDialog);
   private _taskService = inject(TaskService);
   private _workContextService = inject(WorkContextService);
-  private _snackService = inject(SnackService);
   private _activatedRoute = inject(ActivatedRoute);
   private _uiHelperService = inject(UiHelperService);
-  private _translateService = inject(TranslateService);
   private _syncWrapperService = inject(SyncWrapperService);
-  private _ngZone = inject(NgZone);
   private _store = inject(Store);
+  private _pluginBridgeService = inject(PluginBridgeService);
+  private _taskShortcutService = inject(TaskShortcutService);
 
   isCtrlPressed$: Observable<boolean> = fromEvent(document, 'keydown').pipe(
     switchMap((ev: Event) => {
@@ -58,23 +58,17 @@ export class ShortcutService {
     // GLOBAL SHORTCUTS
     if (IS_ELECTRON) {
       window.ea.on(IPC.TASK_TOGGLE_START, () => {
-        this._ngZone.run(() => {
-          this._taskService.toggleStartTask();
-        });
+        this._taskService.toggleStartTask();
       });
-      window.ea.on(IPC.ADD_TASK, () => {
-        this._ngZone.run(() => {
-          this._layoutService.showAddTaskBar();
-        });
+      window.ea.on(IPC.SHOW_ADD_TASK_BAR, () => {
+        this._layoutService.showAddTaskBar();
       });
       window.ea.on(IPC.ADD_NOTE, () => {
         if (this._matDialog.openDialogs.length === 0) {
-          this._ngZone.run(() => {
-            this._matDialog.open(DialogAddNoteComponent, {
-              minWidth: '100vw',
-              height: '100vh',
-              restoreFocus: true,
-            });
+          this._matDialog.open(DialogAddNoteComponent, {
+            minWidth: '100vw',
+            height: '100vh',
+            restoreFocus: true,
           });
         }
       });
@@ -82,7 +76,7 @@ export class ShortcutService {
   }
 
   async handleKeyDown(ev: KeyboardEvent): Promise<void> {
-    const cfg = this._configService.cfg;
+    const cfg = this._configService.cfg();
     if (!cfg) {
       throw new Error();
     }
@@ -90,16 +84,8 @@ export class ShortcutService {
     const keys = cfg.keyboard;
     const el = ev.target as HTMLElement;
 
-    // don't run when inside input or text area and if no special keys are used
-    if (
-      ((el && el.tagName === 'INPUT') ||
-        el.tagName === 'TEXTAREA' ||
-        el.getAttribute('contenteditable')) &&
-      !ev.ctrlKey &&
-      !ev.metaKey
-    ) {
-      return;
-    }
+    // Skip handling if no special keys are used and inside input elements
+    if (!ev.metaKey && isInputElement(el)) return;
 
     if (
       checkKeyCombo(ev, keys.toggleBacklog) &&
@@ -140,13 +126,13 @@ export class ShortcutService {
       // } else if (checkKeyCombo(ev, keys.goToFocusMode)) {
       //   this._router.navigate(['/focus-view']);
     } else if (checkKeyCombo(ev, keys.showSearchBar)) {
-      this._layoutService.toggleSearchBar();
+      this._router.navigate(['/search']);
       ev.preventDefault();
-    } else if (checkKeyCombo(ev, keys.toggleSideNav)) {
-      this._layoutService.toggleSideNav();
+    } else if (checkKeyCombo(ev, keys.focusSideNav)) {
+      this._focusSideNav();
       ev.preventDefault();
     } else if (checkKeyCombo(ev, keys.addNewTask)) {
-      this._layoutService.toggleAddTaskBar();
+      this._layoutService.showAddTaskBar();
       ev.preventDefault();
     } else if (checkKeyCombo(ev, keys.addNewNote)) {
       if (this._matDialog.openDialogs.length === 0) {
@@ -160,12 +146,15 @@ export class ShortcutService {
     } else if (checkKeyCombo(ev, keys.openProjectNotes)) {
       ev.preventDefault();
       this._layoutService.toggleNotes();
+    } else if (checkKeyCombo(ev, keys.toggleTaskViewCustomizerPanel)) {
+      ev.preventDefault();
+      this._layoutService.toggleTaskViewCustomizerPanel();
     } else if (checkKeyCombo(ev, keys.toggleIssuePanel)) {
       ev.preventDefault();
       this._layoutService.toggleAddTaskPanel();
     } else if (checkKeyCombo(ev, keys.triggerSync)) {
       ev.preventDefault();
-      if (await this._syncWrapperService.isEnabled$.pipe(first()).toPromise()) {
+      if (await this._syncWrapperService.isEnabledAndReady$.pipe(first()).toPromise()) {
         this._syncWrapperService.sync();
       }
     } else if (
@@ -188,5 +177,26 @@ export class ShortcutService {
         this._uiHelperService.zoomTo(1);
       }
     }
+
+    // Handle task-specific shortcuts
+    if (this._taskShortcutService.handleTaskShortcuts(ev)) {
+      return;
+    }
+
+    // Check plugin shortcuts (exec last)
+    const pluginShortcuts = this._pluginBridgeService.shortcuts();
+    for (const shortcut of pluginShortcuts) {
+      const shortcutKey = `plugin_${shortcut.pluginId}:${shortcut.id}`;
+      const shortcutKeyCombo = (keys as any)[shortcutKey];
+      if (shortcutKeyCombo && checkKeyCombo(ev, shortcutKeyCombo)) {
+        ev.preventDefault();
+        this._pluginBridgeService.executeShortcut(`${shortcut.pluginId}:${shortcut.id}`);
+        return;
+      }
+    }
+  }
+
+  private _focusSideNav(): void {
+    this._layoutService.focusSideNav();
   }
 }

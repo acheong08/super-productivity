@@ -27,6 +27,8 @@ import { Task, TaskWithReminder } from '../../tasks/task.model';
 import { ProjectService } from '../../project/project.service';
 import { Router } from '@angular/router';
 import { DataInitStateService } from '../../../core/data-init/data-init-state.service';
+import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
+import { Log } from '../../../core/log';
 
 const UPDATE_PERCENTAGE_INTERVAL = 250;
 // since the reminder modal doesn't show instantly we adjust a little for that
@@ -135,7 +137,7 @@ export class ReminderCountdownEffects {
     ) as string;
 
     const nrOfAllBanners = dueRemindersAndTasks.length;
-    console.log({
+    Log.log({
       firstDueTask,
       firstDue,
       dueRemindersAndTasks,
@@ -183,7 +185,12 @@ export class ReminderCountdownEffects {
   private _startTask(task: TaskWithReminder): void {
     // NOTE: reminder needs to be deleted first to avoid problems with "Missing reminder" devError
     if (!!task.reminderId) {
-      this._taskService.unScheduleTask(task.id, task.reminderId);
+      this._store.dispatch(
+        TaskSharedActions.unscheduleTask({
+          id: task.id,
+          reminderId: task.reminderId,
+        }),
+      );
     }
     if (task.projectId) {
       if (!!task.parentId) {

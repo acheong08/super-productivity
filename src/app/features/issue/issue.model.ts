@@ -1,35 +1,25 @@
-import {
-  JiraIssue,
-  JiraIssueReduced,
-} from './providers/jira/jira-issue/jira-issue.model';
+import { JiraIssue, JiraIssueReduced } from './providers/jira/jira-issue.model';
 import { JiraCfg } from './providers/jira/jira.model';
 import { GithubCfg } from './providers/github/github.model';
-import {
-  GithubIssue,
-  GithubIssueReduced,
-} from './providers/github/github-issue/github-issue.model';
+import { GithubIssue, GithubIssueReduced } from './providers/github/github-issue.model';
 import { GitlabCfg } from './providers/gitlab/gitlab.model';
-import { GitlabIssue } from './providers/gitlab/gitlab-issue/gitlab-issue.model';
-import {
-  CaldavIssue,
-  CaldavIssueReduced,
-} from './providers/caldav/caldav-issue/caldav-issue.model';
+import { GitlabIssue } from './providers/gitlab/gitlab-issue.model';
+import { CaldavIssue, CaldavIssueReduced } from './providers/caldav/caldav-issue.model';
 import { CaldavCfg } from './providers/caldav/caldav.model';
 import { OpenProjectCfg } from './providers/open-project/open-project.model';
 import {
   OpenProjectWorkPackage,
   OpenProjectWorkPackageReduced,
-} from './providers/open-project/open-project-issue/open-project-issue.model';
+} from './providers/open-project/open-project-issue.model';
 import { GiteaCfg } from './providers/gitea/gitea.model';
-import { GiteaIssue } from './providers/gitea/gitea-issue/gitea-issue.model';
+import { GiteaIssue } from './providers/gitea/gitea-issue.model';
 import { RedmineCfg } from './providers/redmine/redmine.model';
-import { RedmineIssue } from './providers/redmine/redmine-issue/redmine-issue.model';
+import { RedmineIssue } from './providers/redmine/redmine-issue.model';
 import { EntityState } from '@ngrx/entity';
-import { MODEL_VERSION_KEY } from '../../app.constants';
 import {
+  CalendarProviderCfg,
   ICalIssue,
   ICalIssueReduced,
-  CalendarProviderCfg,
 } from './providers/calendar/calendar.model';
 
 export interface BaseIssueProviderCfg {
@@ -133,7 +123,6 @@ export interface SearchResultItemWithProviderId extends SearchResultItem {
 export interface IssueProviderState extends EntityState<IssueProvider> {
   ids: string[];
   // additional entities state properties
-  [MODEL_VERSION_KEY]: number;
 }
 
 // export type IssueProviderState = EntityState<IssueProvider>;
@@ -142,13 +131,13 @@ export interface IssueProviderBase extends BaseIssueProviderCfg {
   id: string;
   isEnabled: boolean;
   issueProviderKey: IssueProviderKey;
-  defaultProjectId: string | null;
-  pinnedSearch: string | null;
+  defaultProjectId?: string | null | false;
+  pinnedSearch?: string | null;
   // delete at some point in the future
   migratedFromProjectId?: string;
-  isAutoPoll: boolean;
-  isAutoAddToBacklog: boolean;
-  isIntegratedAddTaskBar: boolean;
+  isAutoPoll?: boolean;
+  isAutoAddToBacklog?: boolean;
+  isIntegratedAddTaskBar?: boolean;
 }
 
 export interface IssueProviderJira extends IssueProviderBase, JiraCfg {

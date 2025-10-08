@@ -60,16 +60,15 @@ export const DOMINA_MODE_FORM: ConfigFormSection<DominaModeConfig> = {
       key: 'voice',
       type: 'select',
       templateOptions: {
-        // TODO translate
-        label: 'Select a Voice',
-        description: 'Choose a voice',
+        label: T.F.DOMINA_MODE.FORM.L_VOICE,
+        description: T.F.DOMINA_MODE.FORM.L_VOICE_DESCRIPTION,
         required: false,
       },
       hooks: {
         onInit: (field) => {
           let voices: SpeechSynthesisVoice[] = getAvailableVoices() || [];
           voices = getAvailableVoices();
-          //console.log(voices);
+          //Log.log(voices);
 
           if (field.templateOptions) {
             field.templateOptions.options = voices.map((voiceName) => ({

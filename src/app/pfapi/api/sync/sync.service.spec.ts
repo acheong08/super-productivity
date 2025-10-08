@@ -34,6 +34,8 @@ describe('SyncService', () => {
     lastSyncedUpdate: 1000,
     metaRev: 'meta-rev-1',
     crossModelVersion: 1,
+    vectorClock: { CLIENT_123: 1 },
+    lastSyncedVectorClock: { CLIENT_123: 1 },
     ...overrides,
   });
 
@@ -42,6 +44,7 @@ describe('SyncService', () => {
     lastUpdate: 1000,
     crossModelVersion: 1,
     mainModelData: {},
+    vectorClock: { CLIENT_123: 1 },
     ...overrides,
   });
 
@@ -153,8 +156,13 @@ describe('SyncService', () => {
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type,prefer-arrow/prefer-arrow-functions
   function setupMetaModelCtrl() {
-    const ctrl = jasmine.createSpyObj<MetaModelCtrl>('MetaModelCtrl', ['load', 'save']);
+    const ctrl = jasmine.createSpyObj<MetaModelCtrl>('MetaModelCtrl', [
+      'load',
+      'save',
+      'loadClientId',
+    ]);
     ctrl.load.and.returnValue(Promise.resolve(createDefaultLocalMeta()));
+    ctrl.loadClientId.and.returnValue(Promise.resolve('test-client-id'));
     return ctrl;
   }
 
@@ -196,6 +204,7 @@ describe('SyncService', () => {
       }),
     );
     service2.upload.and.returnValue(Promise.resolve('new-meta-rev-after-upload'));
+    service2.lock.and.returnValue(Promise.resolve());
     return service2;
   }
 
@@ -250,13 +259,15 @@ describe('SyncService', () => {
     });
 
     it('should return inSync if revs match special case', async () => {
-      // Rev different but timestamps match
+      // Rev different but timestamps match and vector clocks are equal
       mockMetaSyncService.getRev.and.returnValue(Promise.resolve('meta-rev-1X'));
       mockMetaModelCtrl.load.and.returnValue(
         Promise.resolve(
           createDefaultLocalMeta({
             lastUpdate: 2000,
             lastSyncedUpdate: 2000,
+            vectorClock: { CLIENT_123: 2 },
+            lastSyncedVectorClock: { CLIENT_123: 2 },
           }),
         ),
       );
@@ -264,6 +275,7 @@ describe('SyncService', () => {
         Promise.resolve({
           remoteMeta: createDefaultRemoteMeta({
             lastUpdate: 2000,
+            vectorClock: { CLIENT_123: 2 }, // Same as local
           }),
           remoteMetaRev: 'meta-rev-1',
         }),
@@ -281,6 +293,10 @@ describe('SyncService', () => {
         Promise.resolve(
           createDefaultLocalMeta({
             metaRev: 'meta-rev-local-1',
+            lastUpdate: 1000,
+            lastSyncedUpdate: 1000,
+            vectorClock: { CLIENT_123: 1 },
+            lastSyncedVectorClock: { CLIENT_123: 1 },
           }),
         ),
       );
@@ -288,6 +304,7 @@ describe('SyncService', () => {
         Promise.resolve({
           remoteMeta: createDefaultRemoteMeta({
             lastUpdate: 2000,
+            vectorClock: { CLIENT_123: 2 }, // Remote is ahead
           }),
           remoteMetaRev: 'meta-rev-remote-2',
         }),
@@ -307,12 +324,17 @@ describe('SyncService', () => {
           createDefaultLocalMeta({
             lastUpdate: 2000,
             lastSyncedUpdate: 1000,
+            vectorClock: { CLIENT_123: 2 }, // Local is ahead
+            lastSyncedVectorClock: { CLIENT_123: 1 },
           }),
         ),
       );
       mockMetaSyncService.download.and.returnValue(
         Promise.resolve({
-          remoteMeta: createDefaultRemoteMeta(),
+          remoteMeta: createDefaultRemoteMeta({
+            lastUpdate: 1000,
+            vectorClock: { CLIENT_123: 1 },
+          }),
           remoteMetaRev: 'meta-rev-1',
         }),
       );
@@ -324,12 +346,14 @@ describe('SyncService', () => {
     });
 
     it('should handle conflicts', async () => {
-      // Setup for conflict
+      // Setup for conflict - concurrent vector clocks
       mockMetaModelCtrl.load.and.returnValue(
         Promise.resolve(
           createDefaultLocalMeta({
             lastUpdate: 2000,
             lastSyncedUpdate: 1000,
+            vectorClock: { CLIENT_123: 2, CLIENT_456: 1 }, // Local has changes from both clients
+            lastSyncedVectorClock: { CLIENT_123: 1, CLIENT_456: 1 },
           }),
         ),
       );
@@ -337,6 +361,7 @@ describe('SyncService', () => {
         Promise.resolve({
           remoteMeta: createDefaultRemoteMeta({
             lastUpdate: 1500,
+            vectorClock: { CLIENT_123: 1, CLIENT_456: 2 }, // Remote has different changes from both clients
           }),
           remoteMetaRev: 'meta-rev-2',
         }),
@@ -358,27 +383,36 @@ describe('SyncService', () => {
 
     it('should upload all data with force flag', async () => {
       spyOn(Date, 'now').and.returnValue(12345);
+
+      // After save, load will return the updated meta
+      mockMetaModelCtrl.load.and.returnValues(
+        Promise.resolve(createDefaultLocalMeta()), // First load
+        Promise.resolve(
+          createDefaultLocalMeta({
+            lastUpdate: 12345,
+          }),
+        ), // Second load after save
+      );
+
       await service.uploadAll(true);
 
-      expect(mockMetaModelCtrl.save).toHaveBeenCalledWith({
-        revMap: {},
-        lastUpdate: 12345,
-        lastSyncedUpdate: 1000,
-        metaRev: 'meta-rev-1',
-        crossModelVersion: 1,
-      });
+      expect(mockMetaModelCtrl.save).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          lastUpdate: 12345,
+        }),
+        true,
+      );
 
       expect(mockMetaSyncService.upload).toHaveBeenCalledWith(
-        {
-          // TODO check this case
+        jasmine.objectContaining({
           revMap: {
             singleModel1: 'UPDATE_ALL_REV',
             singleModel2: 'UPDATE_ALL_REV',
           },
-          lastUpdate: 1000,
+          lastUpdate: 12345,
           crossModelVersion: 1,
           mainModelData: { mainModel1: { id: 'mainModel1-data-id' } },
-        },
+        }),
         null,
       );
     });
@@ -400,6 +434,28 @@ describe('SyncService', () => {
       expect(mockMetaSyncService.upload).toHaveBeenCalled();
     });
 
+    it('should set lastSyncedAction when uploading', async () => {
+      mockSyncProvider.isLimitedToSingleFileSync = true;
+
+      await service.uploadToRemote(
+        createDefaultRemoteMeta(),
+        createDefaultLocalMeta({
+          revMap: { tasks: 'rev1' },
+          lastUpdate: 2000,
+          lastSyncedUpdate: 1000,
+        }),
+        'meta-rev',
+      );
+
+      expect(mockMetaSyncService.saveLocal).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          lastSyncedAction: jasmine.stringMatching(
+            /^Uploaded single file at \d{4}-\d{2}-\d{2}T/,
+          ),
+        }),
+      );
+    });
+
     it('should upload multiple files when models need updating', async () => {
       mockModelSyncService.getModelIdsToUpdateFromRevMaps.and.returnValue({
         toUpdate: ['singleModel1'],
@@ -409,12 +465,14 @@ describe('SyncService', () => {
         Promise.resolve('new-single-model-rev'),
       );
 
+      const localMeta = createDefaultLocalMeta({
+        lastUpdate: 2000,
+        lastSyncedUpdate: 1000,
+      });
+
       await service._uploadToRemoteMULTI(
         createDefaultRemoteMeta(),
-        createDefaultLocalMeta({
-          lastUpdate: 2000,
-          lastSyncedUpdate: 1000,
-        }),
+        localMeta,
         'meta-rev',
       );
 
@@ -422,13 +480,15 @@ describe('SyncService', () => {
         id: 'singleModel1-data-id',
       });
       expect(mockModelSyncService.remove).toHaveBeenCalledWith('singleModel2');
-      expect(mockMetaSyncService.saveLocal).toHaveBeenCalledWith({
-        lastUpdate: 2000,
-        crossModelVersion: 1,
-        lastSyncedUpdate: 2000,
-        revMap: { singleModel1: 'new-single-model-rev' },
-        metaRev: 'NEW-meta-rev-after-upload',
-      });
+      expect(mockMetaSyncService.saveLocal).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          lastUpdate: 2000,
+          crossModelVersion: 1,
+          lastSyncedUpdate: 2000,
+          revMap: { singleModel1: 'new-single-model-rev' },
+          metaRev: 'NEW-meta-rev-after-upload',
+        }),
+      );
     });
   });
 
@@ -499,13 +559,15 @@ describe('SyncService', () => {
         }),
       );
 
-      expect(mockMetaSyncService.saveLocal).toHaveBeenCalledWith({
-        lastUpdate: 2000,
-        crossModelVersion: 1,
-        revMap: {},
-        lastSyncedUpdate: 2000,
-        metaRev: 'expected-new-meta-rev',
-      });
+      expect(mockMetaSyncService.saveLocal).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          lastUpdate: 2000,
+          crossModelVersion: 1,
+          revMap: {},
+          lastSyncedUpdate: 2000,
+          metaRev: 'expected-new-meta-rev',
+        }),
+      );
     });
 
     it('should download multiple files when needed', async () => {
@@ -570,7 +632,11 @@ describe('SyncService', () => {
       mockMetaModelCtrl.load.and.returnValue(
         Promise.resolve(
           createDefaultLocalMeta({
-            crossModelVersion: 1, // Local version
+            lastUpdate: 1000,
+            lastSyncedUpdate: 1000,
+            crossModelVersion: 1.0, // Local version
+            vectorClock: { CLIENT_123: 1 },
+            lastSyncedVectorClock: { CLIENT_123: 1 },
           }),
         ),
       );
@@ -579,7 +645,8 @@ describe('SyncService', () => {
         Promise.resolve({
           remoteMeta: createDefaultRemoteMeta({
             lastUpdate: 2000,
-            crossModelVersion: 2, // Remote version is newer
+            crossModelVersion: 3.0, // Remote version is major version ahead
+            vectorClock: { CLIENT_123: 2 },
           }),
           remoteMetaRev: 'meta-rev-2',
         }),
@@ -648,6 +715,8 @@ describe('SyncService', () => {
             lastUpdate: 2000,
             lastSyncedUpdate: 1000,
             revMap: { singleModel1: 'local-rev' },
+            vectorClock: { CLIENT_123: 2, CLIENT_456: 1 }, // Local has changes from both clients
+            lastSyncedVectorClock: { CLIENT_123: 1, CLIENT_456: 1 },
           }),
         ),
       );
@@ -658,6 +727,7 @@ describe('SyncService', () => {
             revMap: { singleModel1: 'remote-rev' },
             lastUpdate: 1500,
             mainModelData: { mainModel1: { id: 'remote-data' } },
+            vectorClock: { CLIENT_123: 1, CLIENT_456: 2 }, // Remote has different changes from both clients
           }),
           remoteMetaRev: 'meta-rev-2',
         }),
@@ -744,6 +814,82 @@ describe('SyncService', () => {
           'meta-rev-2',
         ),
       ).toBeRejected();
+    });
+  });
+
+  describe('vector clock preservation', () => {
+    it('should preserve vector clock fields when status is InSync', async () => {
+      const localMeta = createDefaultLocalMeta({
+        lastUpdate: 2000,
+        lastSyncedUpdate: 1900, // Different from lastUpdate to trigger saveLocal
+        vectorClock: { CLIENT_123: 5 },
+        lastSyncedVectorClock: { CLIENT_123: 5 }, // Same as vectorClock for InSync
+      });
+
+      const remoteMeta = createDefaultRemoteMeta({
+        lastUpdate: 2000,
+        vectorClock: { CLIENT_123: 5 }, // Same as local for InSync
+      });
+
+      mockMetaModelCtrl.load.and.returnValue(Promise.resolve(localMeta));
+      mockMetaModelCtrl.loadClientId.and.returnValue(Promise.resolve('CLIENT_123'));
+      mockMetaSyncService.getRev.and.returnValue(Promise.resolve('meta-rev-1'));
+      mockMetaSyncService.download.and.returnValue(
+        Promise.resolve({
+          remoteMeta,
+          remoteMetaRev: 'meta-rev-2',
+        }),
+      );
+      mockModelSyncService.getModelIdsToUpdateFromRevMaps.and.returnValue({
+        toUpdate: [],
+        toDelete: [],
+      });
+
+      const result = await service.sync();
+
+      expect(result.status).toBe(SyncStatus.InSync);
+
+      // Check that saveLocal was called with vector clock fields preserved
+      expect(mockMetaSyncService.saveLocal).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          vectorClock: { CLIENT_123: 5 }, // Should be preserved
+          lastSyncedVectorClock: jasmine.any(Object), // Should be set
+        }),
+      );
+    });
+
+    it('should return conflict when vector clock is missing from local', async () => {
+      const localMeta = createDefaultLocalMeta({
+        lastUpdate: 1000,
+        lastSyncedUpdate: 1000,
+        vectorClock: undefined, // No vector clock fields
+        lastSyncedVectorClock: undefined,
+      });
+
+      const remoteMeta = createDefaultRemoteMeta({
+        lastUpdate: 2000,
+        vectorClock: { CLIENT_456: 10 },
+      });
+
+      mockMetaModelCtrl.load.and.returnValue(Promise.resolve(localMeta));
+      mockMetaModelCtrl.loadClientId.and.returnValue(Promise.resolve('CLIENT_123'));
+      mockMetaSyncService.getRev.and.returnValue(Promise.resolve('old-rev'));
+      mockMetaSyncService.download.and.returnValue(
+        Promise.resolve({
+          remoteMeta,
+          remoteMetaRev: 'new-rev',
+        }),
+      );
+      mockModelSyncService.getModelIdsToUpdateFromRevMaps.and.returnValue({
+        toUpdate: [],
+        toDelete: [],
+      });
+
+      const result = await service.sync();
+
+      // Should return conflict when vector clock is missing from local side
+      expect(result.status).toBe(SyncStatus.Conflict);
+      expect(result.conflictData).toBeDefined();
     });
   });
 });

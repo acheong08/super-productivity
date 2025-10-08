@@ -41,7 +41,7 @@
     <span class="text">{{ T.MH.DELETE_TAG | translate }}</span>
   </button>
 }
-@if (isForProject) {
+@if (isForProject && contextId !== INBOX_PROJECT.id) {
   <button
     (click)="deleteProject()"
     mat-menu-item

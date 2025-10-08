@@ -1,7 +1,7 @@
-import { GlobalConfigState } from './global-config.model';
-import { DEFAULT_PROJECT_ID } from '../project/project.const';
-import { getDefaultVoice } from '../domina-mode/getAvailableVoices';
 import { TRACKING_INTERVAL } from '../../app.constants';
+import { getDefaultVoice } from '../domina-mode/getAvailableVoices';
+import { GlobalConfigState } from './global-config.model';
+
 const minute = 60 * 1000;
 const defaultVoice = getDefaultVoice();
 
@@ -9,6 +9,7 @@ export const DEFAULT_DAY_START = '9:00';
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
   lang: {
     lng: null,
+    timeLocale: undefined,
   },
   misc: {
     isConfirmBeforeExit: false,
@@ -18,18 +19,20 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     isAutoAddWorkedOnToToday: true,
     isMinimizeToTray: false,
     isTrayShowCurrentTask: true,
-    defaultProjectId: DEFAULT_PROJECT_ID,
+    isTrayShowCurrentCountdown: true,
+    defaultProjectId: null,
     firstDayOfWeek: 1,
     startOfNextDay: 0,
-    isUseMinimalNav: false,
     isDisableAnimations: false,
-    isShowTipLonger: false,
+    isDisableProductivityTips: false,
     taskNotesTpl: `**How can I best achieve it now?**
 
 **What do I want?**
 
 **Why do I want it?**
 `,
+    isOverlayIndicatorEnabled: false,
+    customTheme: 'default',
   },
   shortSyntax: {
     isEnableProject: true,
@@ -76,6 +79,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     cyclesBeforeLongerBreak: 4,
     isStopTrackingOnBreak: true,
     isStopTrackingOnLongBreak: true,
+    isDisableAutoStartAfterBreak: false,
     isManualContinue: false,
     isManualContinueBreak: false,
     isPlaySound: true,
@@ -91,8 +95,9 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     addNewTask: 'Shift+A',
     addNewNote: 'n',
     openProjectNotes: 'Shift+N',
+    toggleTaskViewCustomizerPanel: 'c',
     toggleIssuePanel: 'p',
-    toggleSideNav: 'Shift+D',
+    focusSideNav: 'Shift+D',
     showHelp: '?',
     showSearchBar: 'Shift+F',
     toggleBacklog: 'b',
@@ -137,7 +142,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
   sound: {
     volume: 75,
     isIncreaseDoneSoundPitch: true,
-    doneSound: 'done2.mp3',
+    doneSound: 'ding-small-bell.mp3',
     breakReminderSound: null,
     trackTimeSound: null,
   },
@@ -186,4 +191,4 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
       syncFolderPath: '',
     },
   },
-};
+} as const;

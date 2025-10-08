@@ -1,19 +1,30 @@
 import { AllSyncModels, ModelCfgs } from '../pfapi.model';
-import { pfLog } from '../util/log';
-import { ImpossibleError, ModelMigrationError } from '../errors/errors';
+import { PFLog } from '../../../core/log';
+import {
+  CanNotMigrateMajorDownError,
+  ImpossibleError,
+  ModelMigrationError,
+} from '../errors/errors';
 import { Pfapi } from '../pfapi';
+import { PFAPI_MIGRATE_FORCE_VERSION_LS_KEY } from '../pfapi.const';
 
 export class MigrationService<MD extends ModelCfgs> {
+  private static readonly L = 'MigrationService';
+
   constructor(private _pfapiMain: Pfapi<MD>) {}
 
   async checkAndMigrateLocalDB(): Promise<void> {
     const meta = await this._pfapiMain.metaModel.load();
-    pfLog(2, `${MigrationService.name}.${this.checkAndMigrateLocalDB.name}()`, {
+    PFLog.normal(`${MigrationService.L}.${this.checkAndMigrateLocalDB.name}()`, {
       meta,
     });
 
+    const forceMigrationVersion = +(
+      localStorage.getItem(PFAPI_MIGRATE_FORCE_VERSION_LS_KEY) || 0
+    );
+
     const r = await this.migrate(
-      meta.crossModelVersion,
+      forceMigrationVersion || meta.crossModelVersion,
       await this._pfapiMain.getAllSyncModelData(true),
     );
     if (r.wasMigrated) {
@@ -30,9 +41,9 @@ export class MigrationService<MD extends ModelCfgs> {
           crossModelVersion: versionAfter,
           lastUpdate: Date.now(),
         });
-        pfLog(2, `Migration successful: ${meta.crossModelVersion} → ${versionAfter}`);
+        PFLog.normal(`Migration successful: ${meta.crossModelVersion} → ${versionAfter}`);
       } catch (error) {
-        pfLog(0, `Migration failed`, {
+        PFLog.critical(`Migration failed`, {
           error,
           fromVersion: meta.crossModelVersion,
           toVersion: versionAfter,
@@ -56,7 +67,7 @@ export class MigrationService<MD extends ModelCfgs> {
       typeof codeModelVersion !== 'number' ||
       dataInCrossModelVersion === codeModelVersion
     ) {
-      pfLog(2, `${MigrationService.name}.${this.migrate.name}() no migration needed`, {
+      PFLog.normal(`${MigrationService.L}.${this.migrate.name}() no migration needed`, {
         dataInCrossModelVersion,
         codeModelVersion,
       });
@@ -71,9 +82,11 @@ export class MigrationService<MD extends ModelCfgs> {
       // if (cfg?.crossModelBackwardMigrations) {
       //   // ...
       // }
-      throw new ImpossibleError(
-        'Saved model version is higher than current one and no backwards migrations available',
-      );
+      if (Math.floor(dataInCrossModelVersion) !== Math.floor(codeModelVersion)) {
+        throw new CanNotMigrateMajorDownError(
+          'Saved model version is higher than current one and no backwards migrations available',
+        );
+      }
     }
 
     return this._migrateUp(codeModelVersion, dataInCrossModelVersion, dataIn);
@@ -97,9 +110,8 @@ export class MigrationService<MD extends ModelCfgs> {
     const migrationsKeysToRun = migrationKeys.filter((v) => v > dataInCrossModelVersion);
     const migrationsToRun = migrationsKeysToRun.map((v) => cfg!.crossModelMigrations![v]);
 
-    pfLog(
-      2,
-      `${MigrationService.name}.${this.migrate.name}() migrate ${dataInCrossModelVersion} to ${codeModelVersion}`,
+    PFLog.normal(
+      `${MigrationService.L}.${this.migrate.name}() migrate ${dataInCrossModelVersion} to ${codeModelVersion}`,
       {
         migrationKeys,
         migrationsKeysToRun,
@@ -128,7 +140,7 @@ export class MigrationService<MD extends ModelCfgs> {
         wasMigrated: true,
       };
     } catch (error) {
-      pfLog(0, `Migration functions failed to execute`, { error });
+      PFLog.critical(`Migration functions failed to execute`, { error });
       throw new ModelMigrationError('Error running migration functions', error);
     }
   }

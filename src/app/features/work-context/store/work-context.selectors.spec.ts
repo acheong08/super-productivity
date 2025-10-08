@@ -63,7 +63,7 @@ describe('workContext selectors', () => {
         id: 'M2',
         subTaskIds: [],
         tagIds: [TODAY_TAG.id],
-        plannedAt: 1234,
+        dueWithTime: 1234,
         reminderId: 'asd',
       } as Partial<TaskCopy> as TaskCopy;
       const ctx: Partial<WorkContext> = {
@@ -78,7 +78,7 @@ describe('workContext selectors', () => {
         { id: 'M1', subTaskIds: [], tagIds: ['TODAY'] },
         {
           id: 'M2',
-          plannedAt: 1234,
+          dueWithTime: 1234,
           reminderId: 'asd',
           subTaskIds: [],
           tagIds: ['TODAY'],
@@ -99,7 +99,7 @@ describe('workContext selectors', () => {
         id: 'M2',
         subTaskIds: [],
         tagIds: [TODAY_TAG.id],
-        plannedAt: 1234,
+        dueWithTime: 1234,
         reminderId: 'asd',
       } as Partial<TaskCopy> as TaskCopy;
 
@@ -107,98 +107,16 @@ describe('workContext selectors', () => {
       expect(result).toEqual([
         {
           id: 'M2',
-          plannedAt: 1234,
+          dueWithTime: 1234,
           reminderId: 'asd',
           subTaskIds: [],
           tagIds: ['TODAY'],
         },
-      ] as any[]);
+      ] as Partial<TaskCopy>[] as TaskCopy[]);
     });
   });
 
   describe('selectTimelineTasks', () => {
-    // TODO fix
-    // it('should return planned and unplanned tasks', () => {
-    //   const P1 = {
-    //     id: 'P1',
-    //     tagIds: [TODAY_TAG.id],
-    //     subTaskIds: [],
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //   const P2 = {
-    //     id: 'P2',
-    //     subTaskIds: [],
-    //     tagIds: [TODAY_TAG.id],
-    //     plannedAt: 1234,
-    //     reminderId: 'asd',
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //   const taskState = fakeEntityStateFromArray([P1, P2]) as any;
-    //   const result = selectTimelineTasks.projector([P1.id], taskState);
-    //   expect(result).toEqual({
-    //     unPlanned: [P1],
-    //     planned: [P2],
-    //   } as any);
-    // });
-    //
-    // it('should split sub tasks', () => {
-    //   const P = {
-    //     id: 'P',
-    //     subTaskIds: ['SUB1', 'SUB_S'],
-    //     tagIds: [TODAY_TAG.id],
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //   const SUB1 = {
-    //     id: 'SUB1',
-    //     subTaskIds: [],
-    //     tagIds: [],
-    //     parentId: P.id,
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //   const SUB_S = {
-    //     id: 'SUB_S',
-    //     plannedAt: 1234,
-    //     reminderId: 'HA',
-    //     parentId: P.id,
-    //     subTaskIds: [],
-    //     tagIds: [],
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //
-    //   const taskState = fakeEntityStateFromArray([P, SUB1, SUB_S]) as any;
-    //   const result = selectTimelineTasks.projector([SUB1.id], taskState);
-    //   expect(result).toEqual({
-    //     unPlanned: [SUB1],
-    //     planned: [SUB_S],
-    //   } as any);
-    // });
-    //
-    // it('should add sub tasks of planned parents', () => {
-    //   const P = {
-    //     id: 'P',
-    //     subTaskIds: ['SUB1', 'SUB_S'],
-    //     tagIds: [],
-    //     plannedAt: 12345,
-    //     reminderId: 'HAXX',
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //   const SUB1 = {
-    //     id: 'SUB1',
-    //     subTaskIds: [],
-    //     tagIds: [],
-    //     parentId: P.id,
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //   const SUB_S = {
-    //     id: 'SUB_S',
-    //     plannedAt: 1234,
-    //     reminderId: 'HA',
-    //     parentId: P.id,
-    //     subTaskIds: [],
-    //     tagIds: [],
-    //   } as Partial<TaskCopy> as TaskCopy;
-    //
-    //   const taskState = fakeEntityStateFromArray([P, SUB1, SUB_S]) as any;
-    //   const result = selectTimelineTasks.projector([SUB1.id, SUB_S.id], taskState);
-    //   expect(result).toEqual({
-    //     unPlanned: [],
-    //     planned: [{ ...SUB1, plannedAt: P.plannedAt }, SUB_S],
-    //   } as any);
-    // });
-
     it('should not show done tasks', () => {
       const P = {
         id: 'P',
@@ -214,7 +132,7 @@ describe('workContext selectors', () => {
       } as Partial<TaskCopy> as TaskCopy;
       const SUB_S = {
         id: 'SUB_S',
-        plannedAt: 1234,
+        dueWithTime: 1234,
         reminderId: 'HA',
         parentId: P.id,
         subTaskIds: [],

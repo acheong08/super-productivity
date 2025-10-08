@@ -1,7 +1,7 @@
 import { ModelBase, ModelCfg } from '../pfapi.model';
 import { Database } from '../db/database';
 import { MetaModelCtrl } from './meta-model-ctrl';
-import { pfLog } from '../util/log';
+import { PFLog } from '../../../core/log';
 import { ModelValidationError } from '../errors/errors';
 
 // type ExtractModelType<T extends ModelCfg<unknown>> = T extends ModelCfg<infer U> ? U : never;
@@ -11,6 +11,8 @@ import { ModelValidationError } from '../errors/errors';
  * @template MT - Model type that extends ModelBase
  */
 export class ModelCtrl<MT extends ModelBase> {
+  private static readonly L = 'ModelCtrl';
+
   public readonly modelId: string;
   public readonly modelCfg: ModelCfg<MT>;
 
@@ -33,34 +35,50 @@ export class ModelCtrl<MT extends ModelBase> {
   /**
    * Saves the model data to database
    * @param data Model data to save
-   * @param options Save options
+   * @param p
    * @returns Promise resolving after save operation
    */
-  save(
+  async save(
     data: MT,
     p?: { isUpdateRevAndLastUpdate: boolean; isIgnoreDBLock?: boolean },
   ): Promise<unknown> {
     this._inMemoryData = data;
-    pfLog(2, `${ModelCtrl.name}.${this.save.name}()`, this.modelId, p, data);
+    PFLog.normal(`___ ${ModelCtrl.L}.${this.save.name}():${this.modelId}`, p, {
+      // Log only safe metadata, not the actual data which might contain credentials
+      dataKeys: data ? Object.keys(data) : [],
+      dataType: typeof data,
+    });
 
     // Validate data if validator is available
-    if (this.modelCfg.validate && !this.modelCfg.validate(data).success) {
-      if (this.modelCfg.repair) {
-        try {
-          data = this.modelCfg.repair(data);
-        } catch (e) {
-          console.error(e);
-          throw new ModelValidationError({ id: this.modelId, data, e });
+    if (this.modelCfg.validate) {
+      const validationResult = this.modelCfg.validate(data);
+      if (!validationResult.success) {
+        if (this.modelCfg.repair) {
+          try {
+            data = this.modelCfg.repair(data);
+          } catch (e) {
+            PFLog.err(e);
+            throw new ModelValidationError({
+              id: this.modelId,
+              data,
+              validationResult,
+              e,
+            });
+          }
+        } else {
+          throw new ModelValidationError({ id: this.modelId, data, validationResult });
         }
-      } else {
-        throw new ModelValidationError({ id: this.modelId, data });
       }
     }
 
     // Update revision if requested
     const isIgnoreDBLock = !!p?.isIgnoreDBLock;
     if (p?.isUpdateRevAndLastUpdate) {
-      this._metaModel.updateRevForModel(this.modelId, this.modelCfg, isIgnoreDBLock);
+      await this._metaModel.updateRevForModel(
+        this.modelId,
+        this.modelCfg,
+        isIgnoreDBLock,
+      );
     }
 
     // Save data to database
@@ -74,7 +92,7 @@ export class ModelCtrl<MT extends ModelBase> {
    */
   async partialUpdate(data: Partial<MT>): Promise<unknown> {
     if (typeof data !== 'object' || data === null) {
-      throw new Error(`${ModelCtrl.name}:${this.modelId}: data is not an object`);
+      throw new Error(`${ModelCtrl.L}:${this.modelId}: data is not an object`);
     }
 
     // Load current data and merge with partial update
@@ -93,7 +111,7 @@ export class ModelCtrl<MT extends ModelBase> {
    * @returns Promise resolving to model data
    */
   async load(): Promise<MT> {
-    pfLog(3, `${ModelCtrl.name}.${this.load.name}()`, {
+    PFLog.verbose(`${ModelCtrl.L}.${this.load.name}():${this.modelId}`, {
       inMemoryData: this._inMemoryData,
     });
     return (
@@ -108,7 +126,7 @@ export class ModelCtrl<MT extends ModelBase> {
    * @returns Promise resolving after remove operation
    */
   async remove(): Promise<unknown> {
-    pfLog(2, `${ModelCtrl.name}.${this.remove.name}()`, this.modelId);
+    PFLog.normal(`${ModelCtrl.L}.${this.remove.name}():${this.modelId}`);
     this._inMemoryData = null;
     return this._db.remove(this.modelId);
   }

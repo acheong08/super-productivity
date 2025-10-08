@@ -6,6 +6,7 @@ import {
 } from '../global-config.model';
 import { T } from '../../../t.const';
 import { IS_ELECTRON } from '../../../app.constants';
+import { AVAILABLE_CUSTOM_THEMES } from '../../../core/theme/custom-theme.service';
 
 export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
   title: T.GCF.MISC.TITLE,
@@ -119,13 +120,6 @@ export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
       },
     },
     {
-      key: 'isUseMinimalNav',
-      type: 'checkbox',
-      templateOptions: {
-        label: T.GCF.MISC.IS_USE_MINIMAL_SIDE_NAV,
-      },
-    },
-    {
       key: 'isDisableAnimations',
       type: 'checkbox',
       templateOptions: {
@@ -133,10 +127,36 @@ export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
       },
     },
     {
-      key: 'isShowTipLonger',
+      key: 'isDisableProductivityTips',
       type: 'checkbox',
       templateOptions: {
-        label: T.GCF.MISC.IS_SHOW_TIP_LONGER,
+        label: T.GCF.MISC.IS_DISABLE_PRODUCTIVITY_TIPS,
+      },
+    },
+    {
+      key: 'isTrayShowCurrentCountdown',
+      type: 'checkbox',
+      templateOptions: {
+        label: T.GCF.MISC.IS_TRAY_SHOW_CURRENT_COUNTDOWN,
+      },
+    },
+    {
+      key: 'isOverlayIndicatorEnabled',
+      type: 'checkbox',
+      templateOptions: {
+        label: T.GCF.MISC.IS_OVERLAY_INDICATOR_ENABLED,
+      },
+      hideExpression: (model: any) => !model?.isTrayShowCurrentTask,
+    },
+    {
+      key: 'customTheme',
+      type: 'select',
+      templateOptions: {
+        label: T.GCF.MISC.THEME,
+        options: AVAILABLE_CUSTOM_THEMES.map((theme) => ({
+          label: theme.name,
+          value: theme.id,
+        })),
       },
     },
   ],

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { FieldType } from '@ngx-formly/material';
 import { MATERIAL_ICONS } from '../../../ui/material-icons.const';
 import { FormlyFieldConfig, FormlyModule } from '@ngx-formly/core';
@@ -9,6 +9,8 @@ import { MatAutocomplete, MatAutocompleteTrigger } from '@angular/material/autoc
 import { MatOption } from '@angular/material/core';
 import { IS_ELECTRON } from '../../../app.constants';
 import { MatTooltip } from '@angular/material/tooltip';
+import { containsEmoji, extractFirstEmoji } from '../../../util/extract-first-emoji';
+import { isSingleEmoji } from '../../../util/extract-first-emoji';
 
 @Component({
   selector: 'icon-input',
@@ -28,7 +30,9 @@ import { MatTooltip } from '@angular/material/tooltip';
   ],
 })
 export class IconInputComponent extends FieldType<FormlyFieldConfig> {
-  filteredIcons: string[] = [];
+  filteredIcons = signal<string[]>([]);
+  isEmoji = signal(false);
+
   protected readonly IS_ELECTRON = IS_ELECTRON;
   isLinux = IS_ELECTRON && window.ea.isLinux();
 
@@ -45,23 +49,52 @@ export class IconInputComponent extends FieldType<FormlyFieldConfig> {
       (icoStr) => icoStr && icoStr.toLowerCase().includes(val.toLowerCase()),
     );
     arr.length = Math.min(150, arr.length);
-    this.filteredIcons = arr;
+    this.filteredIcons.set(arr);
 
-    const isEmoji = /\p{Emoji}/u.test(val);
-    if (isEmoji) {
-      this.formControl.setValue(val);
+    const hasEmoji = containsEmoji(val);
+
+    if (hasEmoji) {
+      const firstEmoji = extractFirstEmoji(val);
+
+      if (firstEmoji) {
+        this.formControl.setValue(firstEmoji);
+        this.isEmoji.set(true);
+      } else {
+        this.formControl.setValue('');
+        this.isEmoji.set(false);
+      }
     } else if (!val) {
       this.formControl.setValue('');
+      this.isEmoji.set(false);
+    } else {
+      this.isEmoji.set(false);
     }
   }
 
   onIconSelect(icon: string): void {
     this.formControl.setValue(icon);
+    const emojiCheck = isSingleEmoji(icon);
+    this.isEmoji.set(emojiCheck && !this.filteredIcons().includes(icon));
   }
 
   openEmojiPicker(): void {
     if (IS_ELECTRON) {
       window.ea.showEmojiPanel();
+    }
+  }
+
+  onPaste(event: ClipboardEvent): void {
+    event.preventDefault();
+
+    const pastedText = event.clipboardData?.getData('text') || '';
+
+    if (pastedText) {
+      const firstEmoji = extractFirstEmoji(pastedText);
+
+      if (firstEmoji && isSingleEmoji(firstEmoji)) {
+        this.formControl.setValue(firstEmoji);
+        this.isEmoji.set(true);
+      }
     }
   }
 

@@ -3,7 +3,6 @@ import { nanoid } from 'nanoid';
 import { ChromeExtensionInterfaceService } from '../../../../core/chrome-extension-interface/chrome-extension-interface.service';
 import {
   JIRA_ADDITIONAL_ISSUE_FIELDS,
-  JIRA_DATETIME_FORMAT,
   JIRA_MAX_RESULTS,
   JIRA_REQUEST_TIMEOUT_DURATION,
 } from './jira.const';
@@ -14,7 +13,7 @@ import {
   mapToSearchResults,
   mapToSearchResultsForJQL,
   mapTransitionResponse,
-} from './jira-issue/jira-issue-map.util';
+} from './jira-issue-map.util';
 import {
   JiraOriginalStatus,
   JiraOriginalTransition,
@@ -34,11 +33,9 @@ import {
   mapTo,
   shareReplay,
   take,
-  tap,
   timeoutWith,
 } from 'rxjs/operators';
-import { JiraIssue, JiraIssueReduced } from './jira-issue/jira-issue.model';
-import moment from 'moment';
+import { JiraIssue, JiraIssueReduced } from './jira-issue.model';
 import { BannerService } from '../../../../core/banner/banner.service';
 import { BannerId } from '../../../../core/banner/banner.model';
 import { T } from '../../../../t.const';
@@ -53,6 +50,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { DialogPromptComponent } from '../../../../ui/dialog-prompt/dialog-prompt.component';
 import { stripTrailing } from '../../../../util/strip-trailing';
 import { IS_ANDROID_WEB_VIEW } from '../../../../util/is-android-web-view';
+import { formatJiraDate } from '../../../../util/format-jira-date';
+import { IssueLog } from '../../../../core/log';
 
 const BLOCK_ACCESS_KEY = 'SUP_BLOCK_JIRA_ACCESS';
 const API_VERSION = 'latest';
@@ -146,11 +145,27 @@ export class JiraApiService {
         // NOTE: we pass the cfg as well to avoid race conditions
       },
       cfg,
+      suppressErrorSnack: true,
     }).pipe(
       // switchMap((res) =>
       //   res.length > 0 ? of(res) : this.issuePicker$(searchTerm, cfg),
       // ),
-      tap((v) => console.log('AAAAA', v)),
+      catchError((err) => {
+        const code = err?.error?.statusCode ?? err?.status ?? err?.error?.status;
+        if (code === 404) {
+          // Fallback for Server/DC: /search?jql=...
+          return this._sendRequest$({
+            jiraReqCfg: {
+              pathname: 'search',
+              followAllRedirects: true,
+              query: { jql: searchTermJQL },
+              transform: mapToSearchResultsForJQL,
+            },
+            cfg,
+          });
+        }
+        return throwError(() => err);
+      }),
     );
   }
 
@@ -178,28 +193,6 @@ export class JiraApiService {
       // ),
       ();
   }
-
-  // fallBackSearch$(searchTerm: string, cfg: JiraCfg): Observable<SearchResultItem[]> {
-  //   const options = {
-  //     maxResults: JIRA_MAX_RESULTS,
-  //     fields: [
-  //       ...JIRA_ADDITIONAL_ISSUE_FIELDS,
-  //       ...(cfg.storyPointFieldId ? [cfg.storyPointFieldId] : []),
-  //     ],
-  //   };
-  //   return this._sendRequest$({
-  //     jiraReqCfg: {
-  //       transform: mapIssuesResponse as (res: any, cfg?: JiraCfg) => any,
-  //       pathname: 'search',
-  //       method: 'POST',
-  //       body: {
-  //         ...options,
-  //         jql: searchTerm,
-  //       },
-  //     },
-  //     cfg,
-  //   });
-  // }
 
   listFields$(cfg: JiraCfg): Observable<any> {
     return this._sendRequest$({
@@ -237,7 +230,7 @@ export class JiraApiService {
     return this._sendRequest$({
       jiraReqCfg: {
         transform: mapIssuesResponse as (res: any, cfg?: JiraCfg) => any,
-        pathname: 'search',
+        pathname: 'search/jql',
         method: 'POST',
         body: {
           ...options,
@@ -245,7 +238,23 @@ export class JiraApiService {
         },
       },
       cfg,
-    });
+      suppressErrorSnack: true,
+    }).pipe(
+      catchError((err) => {
+        const code = err?.error?.statusCode ?? err?.status ?? err?.error?.status;
+        if (code === 401 || code === 403) return throwError(() => err);
+        // Fallback for Server/DC: POST /search with jql in body
+        return this._sendRequest$({
+          jiraReqCfg: {
+            transform: mapIssuesResponse as (res: any, cfg?: JiraCfg) => any,
+            pathname: 'search',
+            method: 'POST',
+            body: { ...options, jql: searchQuery },
+          },
+          cfg,
+        });
+      }),
+    );
   }
 
   getIssueById$(issueId: string, cfg: JiraCfg): Observable<JiraIssue> {
@@ -337,9 +346,7 @@ export class JiraApiService {
     cfg: JiraCfg;
   }): Observable<any> {
     const worklog = {
-      started: moment(started).locale('en').format(JIRA_DATETIME_FORMAT),
-      // TODO check if this can be replaced with this
-      // started: formatISODateWithOffset(new Date(started)),
+      started: formatJiraDate(started),
       timeSpentSeconds: Math.floor(timeSpent / 1000),
       comment,
     };
@@ -388,10 +395,12 @@ export class JiraApiService {
     jiraReqCfg,
     cfg,
     isForce = false,
+    suppressErrorSnack = false,
   }: {
     jiraReqCfg: JiraRequestCfg;
     cfg: JiraCfg;
     isForce?: boolean;
+    suppressErrorSnack?: boolean;
   }): Observable<any> {
     return this._isInterfacesReadyIfNeeded$.pipe(
       take(1),
@@ -424,7 +433,7 @@ export class JiraApiService {
         }
 
         if (this._isBlockAccess && !isForce) {
-          console.error('Blocked Jira Access to prevent being shut out');
+          IssueLog.err('Blocked Jira Access to prevent being shut out');
           this._bannerService.open({
             id: BannerId.JiraUnblock,
             msg: T.F.JIRA.BANNER.BLOCK_ACCESS_MSG,
@@ -456,6 +465,7 @@ export class JiraApiService {
           requestInit,
           jiraReqCfg.transform,
           cfg,
+          suppressErrorSnack,
         );
         // NOTE: offline is sexier & easier than cache, but in case we change our mind...
         // const args = [requestId, url, requestInit, jiraReqCfg.transform];
@@ -470,6 +480,7 @@ export class JiraApiService {
     requestInit: RequestInit,
     transform: any,
     jiraCfg: JiraCfg,
+    suppressErrorSnack: boolean,
   ): Observable<any> {
     // TODO refactor to observable for request canceling etc
     let promiseResolve;
@@ -516,10 +527,12 @@ export class JiraApiService {
           }),
       ).pipe(
         catchError((err) => {
-          console.log(err);
-          console.log(getErrorTxt(err));
+          IssueLog.log(err);
+          IssueLog.log(getErrorTxt(err));
           const errTxt = `Jira: ${getErrorTxt(err)}`;
-          this._snackService.open({ type: 'ERROR', msg: errTxt });
+          if (!suppressErrorSnack) {
+            this._snackService.open({ type: 'ERROR', msg: errTxt });
+          }
           return throwError({ [HANDLED_ERROR_PROP_STR]: errTxt });
         }),
       );
@@ -530,10 +543,12 @@ export class JiraApiService {
     this._globalProgressBarService.countUp(url);
     return fromPromise(promise).pipe(
       catchError((err) => {
-        console.log(err);
-        console.log(getErrorTxt(err));
+        IssueLog.log(err);
+        IssueLog.log(getErrorTxt(err));
         const errTxt = `Jira: ${getErrorTxt(err)}`;
-        this._snackService.open({ type: 'ERROR', msg: errTxt });
+        if (!suppressErrorSnack) {
+          this._snackService.open({ type: 'ERROR', msg: errTxt });
+        }
         return throwError({ [HANDLED_ERROR_PROP_STR]: errTxt });
       }),
       first(),
@@ -628,7 +643,7 @@ export class JiraApiService {
       jiraCfg,
 
       timeoutId: window.setTimeout(() => {
-        console.log('ERROR', 'Jira Request timed out', requestInit);
+        IssueLog.log('ERROR', 'Jira Request timed out', requestInit);
         this._blockAccess();
         // delete entry for promise
         this._snackService.open({
@@ -650,7 +665,7 @@ export class JiraApiService {
 
       // resolve saved promise
       if (!res || res.error) {
-        console.error('JIRA_RESPONSE_ERROR', res, currentRequest);
+        IssueLog.err('JIRA_RESPONSE_ERROR', res, currentRequest);
         // let msg =
         if (
           res?.error &&
@@ -664,15 +679,15 @@ export class JiraApiService {
 
         currentRequest.reject(res);
       } else {
-        // console.log('JIRA_RESPONSE', res);
+        // IssueLog.log('JIRA_RESPONSE', res);
         if (currentRequest.transform) {
           // data can be invalid, that's why we check
           try {
             currentRequest.resolve(currentRequest.transform(res, currentRequest.jiraCfg));
           } catch (e) {
-            console.log(res);
-            console.log(currentRequest);
-            console.error(e);
+            IssueLog.log(res);
+            IssueLog.log(currentRequest);
+            IssueLog.err(e);
             this._snackService.open({
               type: 'ERROR',
               msg: T.F.JIRA.S.INVALID_RESPONSE,
@@ -685,7 +700,7 @@ export class JiraApiService {
       // delete entry for promise afterwards
       delete this._requestsLog[res.requestId];
     } else {
-      console.warn('Jira: Response Request ID not existing', res && res.requestId);
+      IssueLog.err('Jira: Response Request ID not existing', res && res.requestId);
     }
   }
 
@@ -729,7 +744,7 @@ async function streamToJsonIfPossible(stream: ReadableStream): Promise<any> {
   try {
     return JSON.parse(text);
   } catch (e) {
-    console.error('Jira: Could not parse response', text);
+    IssueLog.err('Jira: Could not parse response', text);
     return text;
   }
 }

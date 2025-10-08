@@ -9,7 +9,7 @@ import {
   RemoteFileNotFoundAPIError,
   NoRevAPIError,
 } from '../../../errors/errors';
-import { pfLog } from '../../../util/log';
+import { PFLog } from '../../../../../core/log';
 import { DropboxApi } from './dropbox-api';
 import { generatePKCECodes } from './generate-pkce-codes';
 import { SyncProviderPrivateCfgStore } from '../../sync-provider-private-cfg-store';
@@ -40,6 +40,8 @@ interface DropboxApiError {
 }
 
 export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Dropbox> {
+  private static readonly L = 'Dropbox';
+
   readonly id = SyncProviderId.Dropbox;
   readonly isUploadForcePossible = true;
   readonly maxConcurrentRequests = 4;
@@ -65,7 +67,7 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
   }
 
   async setPrivateCfg(privateCfg: DropboxPrivateCfg): Promise<void> {
-    await this.privateCfg.save(privateCfg);
+    await this.privateCfg.setComplete(privateCfg);
   }
 
   /**
@@ -84,7 +86,7 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
       };
     } catch (e) {
       if (this._isTokenError(e)) {
-        pfLog(0, 'EXPIRED or INVALID TOKEN, trying to refresh');
+        PFLog.critical('EXPIRED or INVALID TOKEN, trying to refresh');
         await this._api.updateAccessTokenFromRefreshTokenIfAvailable();
         return this.getFileRev(targetPath, localRev);
       }
@@ -110,14 +112,10 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
    * @throws RemoteFileNotFoundAPIError if the file doesn't exist
    * @throws InvalidDataSPError if the data is invalid
    */
-  async downloadFile(
-    targetPath: string,
-    localRev: string,
-  ): Promise<{ rev: string; dataStr: string }> {
+  async downloadFile(targetPath: string): Promise<{ rev: string; dataStr: string }> {
     try {
       const r = await this._api.download({
         path: this._getPath(targetPath),
-        localRev,
       });
 
       if (!r.meta.rev) {
@@ -129,7 +127,7 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
       }
 
       if (typeof r.data !== 'string') {
-        pfLog(0, `${Dropbox.name}.${this.downloadFile.name}() data`, r.data);
+        PFLog.critical(`${Dropbox.L}.${this.downloadFile.name}() data`, r.data);
         throw new InvalidDataSPError(r.data);
       }
 
@@ -139,9 +137,9 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
       };
     } catch (e) {
       if (this._isTokenError(e)) {
-        pfLog(0, 'EXPIRED or INVALID TOKEN, trying to refresh');
+        PFLog.critical('EXPIRED or INVALID TOKEN, trying to refresh');
         await this._api.updateAccessTokenFromRefreshTokenIfAvailable();
-        return this.downloadFile(targetPath, localRev);
+        return this.downloadFile(targetPath);
       }
       throw e;
     }
@@ -179,7 +177,7 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
       };
     } catch (e) {
       if (this._isTokenError(e)) {
-        pfLog(0, 'EXPIRED or INVALID TOKEN, trying to refresh');
+        PFLog.critical('EXPIRED or INVALID TOKEN, trying to refresh');
         await this._api.updateAccessTokenFromRefreshTokenIfAvailable();
         return this.uploadFile(targetPath, dataStr, revToMatch, isForceOverwrite);
       }
@@ -198,7 +196,7 @@ export class Dropbox implements SyncProviderServiceInterface<SyncProviderId.Drop
       await this._api.remove(this._getPath(targetPath));
     } catch (e) {
       if (this._isTokenError(e)) {
-        pfLog(0, 'EXPIRED or INVALID TOKEN, trying to refresh');
+        PFLog.critical('EXPIRED or INVALID TOKEN, trying to refresh');
         await this._api.updateAccessTokenFromRefreshTokenIfAvailable();
         return this.removeFile(targetPath);
       }

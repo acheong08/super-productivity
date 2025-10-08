@@ -1,69 +1,70 @@
 @if (isShowUi$ | async) {
-  @if (globalThemeService.backgroundImg$ | async; as bgImage) {
+  @if (globalThemeService.backgroundImg(); as bgImage) {
     <div
       [style.background]="'url(' + bgImage + ')'"
       class="bg-image"
     ></div>
   }
   <!--TODO move inside page container somehow -->
-  @if (layoutService.isShowAddTaskBar$ | async) {
+  @if (layoutService.isShowAddTaskBar()) {
     <add-task-bar
-      (blurred)="layoutService.hideAddTaskBar()"
-      [isElevated]="true"
+      (closed)="layoutService.hideAddTaskBar()"
+      (done)="layoutService.hideAddTaskBar()"
+      [isGlobalBarVariant]="true"
       class="global"
     ></add-task-bar>
   }
-  @if (layoutService.isShowAddTaskBar$ | async) {
+  @if (layoutService.isShowAddTaskBar()) {
     <div
       (click)="layoutService.hideAddTaskBar()"
       @fade
       class="backdrop"
     ></div>
   }
-  @if (layoutService.isShowSearchBar$ | async) {
-    <search-bar (blurred)="layoutService.hideSearchBar()"></search-bar>
-  }
-  @if (layoutService.isShowSearchBar$ | async) {
-    <div
-      (click)="layoutService.hideSearchBar()"
-      @fade
-      class="backdrop"
-    ></div>
-  }
   <!-- -->
-  @if (isShowFocusOverlay$ | async) {
+  @if (isShowFocusOverlay()) {
     <focus-mode-overlay @warp></focus-mode-overlay>
   } @else {
-    <mat-sidenav-container [dir]="isRTL ? 'rtl' : 'ltr'">
-      <mat-sidenav
-        (closedStart)="layoutService.hideSideNav()"
-        [mode]="(layoutService.isNavOver$ | async) ? 'over' : 'side'"
-        [opened]="layoutService.isShowSideNav$ | async"
-        [disableClose]="layoutService.isNavAlwaysVisible$ | async"
-        position="start"
+    <div
+      class="app-container"
+      [class.has-mobile-bottom-nav]="isShowMobileButtonNav"
+      [dir]="isRTL ? 'rtl' : 'ltr'"
+    >
+      <magic-side-nav
+        #magicSideNav
+        [activeWorkContextId]="getActiveWorkContextId()"
       >
-        <side-nav></side-nav>
-        @if (workContextService.isActiveWorkContextProject$ | async) {}
-      </mat-sidenav>
-      <mat-sidenav-content>
+      </magic-side-nav>
+
+      <main class="main-content">
         <header
-          [class.isNotScrolled]="!(layoutService.isScrolled$ | async)"
+          [class.isNotScrolled]="!layoutService.isScrolled()"
           class="header-wrapper"
         >
           <main-header></main-header>
 
           <banner></banner>
         </header>
-        <div
-          #routeWrapper
-          [@warpRoute]="getPage(o)"
-          class="route-wrapper"
-        >
-          <router-outlet #o="outlet"></router-outlet>
-        </div>
+
+        <right-panel>
+          <div
+            #routeWrapper
+            [@warpRoute]="getPage(o)"
+            class="route-wrapper"
+          >
+            <router-outlet #o="outlet"></router-outlet>
+          </div>
+        </right-panel>
         <global-progress-bar></global-progress-bar>
-      </mat-sidenav-content>
-    </mat-sidenav-container>
+      </main>
+
+      <!-- Mobile Bottom Navigation -->
+      @if (isShowMobileButtonNav) {
+        <mobile-bottom-nav
+          (toggleMobileNavEvent)="magicSideNav.toggleMobileNav()"
+        ></mobile-bottom-nav>
+      }
+    </div>
   }
   <!-- -->
 }
@@ -111,3 +112,28 @@
 @defer {
   <shepherd></shepherd>
 }
+
+<!-- Background context menu -->
+@if (routeWrapper) {
+  <context-menu
+    [contextMenu]="backgroundContextMenu"
+    [rightClickTriggerEl]="routeWrapper.nativeElement"
+    [allowedSelectors]="
+      '.route-wrapper, .today, .task-list-wrapper, .page-wrapper, .route-wrapper > *, .search-results'
+    "
+  ></context-menu>
+}
+
+<ng-template #backgroundContextMenu>
+  <div style="min-width: 200px; max-width: 300px">
+    <button
+      mat-menu-item
+      (click)="changeBackgroundFromUnsplash()"
+      class="background-menu-item"
+      style="width: 100%; overflow: hidden"
+    >
+      <mat-icon>image</mat-icon>
+      <span>{{ T.APP.CONTEXT_MENU.CHANGE_BACKGROUND | translate }}</span>
+    </button>
+  </div>
+</ng-template>

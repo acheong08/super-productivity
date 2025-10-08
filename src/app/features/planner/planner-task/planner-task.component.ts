@@ -15,13 +15,11 @@ import { TaskCopy } from '../../tasks/task.model';
 import { EMPTY, Observable } from 'rxjs';
 import { TaskService } from '../../tasks/task.service';
 import { IS_TOUCH_PRIMARY } from '../../../util/is-mouse-primary';
-import { MatDialog } from '@angular/material/dialog';
 import { T } from '../../../t.const';
 import { Project } from '../../project/project.model';
 import { ProjectService } from '../../project/project.service';
 import { takeUntil } from 'rxjs/operators';
 import { BaseComponent } from '../../../core/base-component/base.component';
-import { DialogTaskDetailPanelComponent } from '../../tasks/dialog-task-detail-panel/dialog-task-detail-panel.component';
 import { TaskContextMenuComponent } from '../../tasks/task-context-menu/task-context-menu.component';
 import { MatIcon } from '@angular/material/icon';
 import { LongPressIOSDirective } from '../../../ui/longpress/longpress-ios.directive';
@@ -30,6 +28,7 @@ import { InlineInputComponent } from '../../../ui/inline-input/inline-input.comp
 import { MsToStringPipe } from '../../../ui/duration/ms-to-string.pipe';
 import { IssueIconPipe } from '../../issue/issue-icon/issue-icon.pipe';
 import { ShortDate2Pipe } from '../../../ui/pipes/short-date2.pipe';
+import { Log } from '../../../core/log';
 
 @Component({
   selector: 'planner-task',
@@ -51,7 +50,6 @@ import { ShortDate2Pipe } from '../../../ui/pipes/short-date2.pipe';
 export class PlannerTaskComponent extends BaseComponent implements OnInit, OnDestroy {
   private _taskService = inject(TaskService);
   private _cd = inject(ChangeDetectorRef);
-  private _matDialog = inject(MatDialog);
   private _projectService = inject(ProjectService);
 
   // TODO: Skipped for migration because:
@@ -82,15 +80,14 @@ export class PlannerTaskComponent extends BaseComponent implements OnInit, OnDes
 
   @HostBinding('class.isCurrent')
   get isCurrent(): boolean {
-    return this.task.id === this._taskService.currentTaskId;
+    return this.task.id === this._taskService.currentTaskId();
   }
 
   @HostListener('click', ['$event'])
   async clickHandler(): Promise<void> {
     if (this.task) {
-      this._matDialog.open(DialogTaskDetailPanelComponent, {
-        data: { taskId: this.task.id },
-      });
+      // Use bottom panel on mobile, dialog on desktop
+      this._taskService.setSelectedId(this.task.id);
     }
   }
 
@@ -149,7 +146,7 @@ export class PlannerTaskComponent extends BaseComponent implements OnInit, OnDes
   }
 
   updateTimeEstimate(val: number): void {
-    console.log(val);
+    Log.log(val);
     this._taskService.update(this.task.id, {
       timeEstimate: val,
     });

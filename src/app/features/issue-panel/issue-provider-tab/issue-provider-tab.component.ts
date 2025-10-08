@@ -36,7 +36,7 @@ import {
   tap,
 } from 'rxjs/operators';
 import { Store } from '@ngrx/store';
-import { Observable, of } from 'rxjs';
+import { from, Observable, of } from 'rxjs';
 import { selectAllTaskIssueIdsForIssueProvider } from '../../tasks/store/task.selectors';
 import { DialogEditIssueProviderComponent } from '../../issue/dialog-edit-issue-provider/dialog-edit-issue-provider.component';
 import { MatDialog } from '@angular/material/dialog';
@@ -58,6 +58,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { MatInput } from '@angular/material/input';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { Log } from '../../../core/log';
 
 @Component({
   selector: 'issue-provider-tab',
@@ -122,7 +123,7 @@ export class IssueProviderTabComponent implements OnDestroy, AfterViewInit {
         : of(null),
     ),
     catchError(() => {
-      console.error('Project not found for issueProvider');
+      Log.err('Project not found for issueProvider');
       return of(null);
     }),
   );
@@ -155,22 +156,26 @@ export class IssueProviderTabComponent implements OnDestroy, AfterViewInit {
           tap(() => this.isLoading.set(true)),
 
           switchMap(([searchText, issueProvider]: [string, IssueProvider]) =>
-            this._issueService
-              .searchIssues$(searchText, issueProvider.id, issueProvider.issueProviderKey)
-              .pipe(
-                catchError((e) => {
-                  this.error.set(getErrorTxt(e));
-                  this.isLoading.set(false);
-                  return of(true);
-                }),
-                map((trueOnErrorOrItems) => {
-                  if (trueOnErrorOrItems === true) {
-                    return [];
-                  }
-                  this.error.set(undefined);
-                  return trueOnErrorOrItems as SearchResultItem[];
-                }),
+            from(
+              this._issueService.searchIssues(
+                searchText,
+                issueProvider.id,
+                issueProvider.issueProviderKey,
               ),
+            ).pipe(
+              catchError((e) => {
+                this.error.set(getErrorTxt(e));
+                this.isLoading.set(false);
+                return of(true);
+              }),
+              map((trueOnErrorOrItems) => {
+                if (trueOnErrorOrItems === true) {
+                  return [];
+                }
+                this.error.set(undefined);
+                return trueOnErrorOrItems as SearchResultItem[];
+              }),
+            ),
           ),
 
           switchMap((items) =>
@@ -251,7 +256,7 @@ export class IssueProviderTabComponent implements OnDestroy, AfterViewInit {
       throw new Error('Issue Provider and Search Result Type dont match');
     }
 
-    console.log('Add issue', item);
+    Log.log('Add issue', item);
 
     this._issueService.addTaskFromIssue({
       issueDataReduced: item.issueData,

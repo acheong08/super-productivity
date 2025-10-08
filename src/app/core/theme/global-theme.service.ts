@@ -1,14 +1,8 @@
-import { inject, Injectable } from '@angular/core';
+import { effect, inject, Injectable, signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { BodyClass, IS_ELECTRON } from '../../app.constants';
 import { IS_MAC } from '../../util/is-mac';
-import {
-  distinctUntilChanged,
-  map,
-  skip,
-  startWith,
-  switchMap,
-  take,
-} from 'rxjs/operators';
+import { distinctUntilChanged, map, startWith, switchMap, take } from 'rxjs/operators';
 import { IS_TOUCH_ONLY } from '../../util/is-touch-only';
 import { MaterialCssVarsService } from 'angular-material-css-vars';
 import { DOCUMENT } from '@angular/common';
@@ -19,7 +13,7 @@ import { ThemeService as NgChartThemeService } from 'ng2-charts';
 import { GlobalConfigService } from '../../features/config/global-config.service';
 import { WorkContextThemeCfg } from '../../features/work-context/work-context.model';
 import { WorkContextService } from '../../features/work-context/work-context.service';
-import { BehaviorSubject, combineLatest, fromEvent, Observable, of } from 'rxjs';
+import { combineLatest, fromEvent, Observable, of } from 'rxjs';
 import { IS_FIREFOX } from '../../util/is-firefox';
 import { ImexViewService } from '../../imex/imex-meta/imex-view.service';
 import { IS_MOUSE_PRIMARY, IS_TOUCH_PRIMARY } from '../../util/is-mouse-primary';
@@ -28,12 +22,16 @@ import { IS_ANDROID_WEB_VIEW } from '../../util/is-android-web-view';
 import { androidInterface } from '../../features/android/android-interface';
 import { HttpClient } from '@angular/common/http';
 import { LS } from '../persistence/storage-keys.const';
+import { CustomThemeService } from './custom-theme.service';
+import { Log } from '../log';
+import { LayoutService } from '../../core-ui/layout/layout.service';
 
 export type DarkModeCfg = 'dark' | 'light' | 'system';
 
 @Injectable({ providedIn: 'root' })
 export class GlobalThemeService {
   private document = inject<Document>(DOCUMENT);
+  private _layoutService = inject(LayoutService);
   private _materialCssVarsService = inject(MaterialCssVarsService);
   private _workContextService = inject(WorkContextService);
   private _globalConfigService = inject(GlobalConfigService);
@@ -43,12 +41,13 @@ export class GlobalThemeService {
   private _chromeExtensionInterfaceService = inject(ChromeExtensionInterfaceService);
   private _imexMetaService = inject(ImexViewService);
   private _http = inject(HttpClient);
+  private _customThemeService = inject(CustomThemeService);
 
-  darkMode$ = new BehaviorSubject<DarkModeCfg>(
+  darkMode = signal<DarkModeCfg>(
     (localStorage.getItem(LS.DARK_MODE) as DarkModeCfg) || 'system',
   );
 
-  isDarkTheme$: Observable<boolean> = this.darkMode$.pipe(
+  private _isDarkThemeObs$: Observable<boolean> = toObservable(this.darkMode).pipe(
     switchMap((darkMode) => {
       switch (darkMode) {
         case 'dark':
@@ -66,9 +65,11 @@ export class GlobalThemeService {
     distinctUntilChanged(),
   );
 
-  backgroundImg$: Observable<string | null | undefined> = combineLatest([
+  isDarkTheme = toSignal(this._isDarkThemeObs$, { initialValue: false });
+
+  private _backgroundImgObs$: Observable<string | null | undefined> = combineLatest([
     this._workContextService.currentTheme$,
-    this.isDarkTheme$,
+    this._isDarkThemeObs$,
   ]).pipe(
     map(([theme, isDarkMode]) =>
       isDarkMode ? theme.backgroundImageDark : theme.backgroundImageLight,
@@ -76,15 +77,26 @@ export class GlobalThemeService {
     distinctUntilChanged(),
   );
 
+  backgroundImg = toSignal(this._backgroundImgObs$);
+
   init(): void {
     // This is here to make web page reloads on non-work-context pages at least usable
-    this._setBackgroundGradient(true);
+    this._setBackgroundTint(true);
     this._initIcons();
     this._initHandlersForInitialBodyClasses();
     this._initThemeWatchers();
-    this.darkMode$
-      .pipe(skip(1))
-      .subscribe((darkMode) => localStorage.setItem(LS.DARK_MODE, darkMode));
+
+    // Set up dark mode persistence effect
+    effect(
+      () => {
+        const darkMode = this.darkMode();
+        localStorage.setItem(LS.DARK_MODE, darkMode);
+      },
+      { allowSignalWrites: false },
+    );
+
+    // Set up reactive custom theme updates
+    this._setupCustomThemeEffect();
   }
 
   private _setDarkTheme(isDarkTheme: boolean): void {
@@ -96,7 +108,7 @@ export class GlobalThemeService {
 
   private _setColorTheme(theme: WorkContextThemeCfg): void {
     this._materialCssVarsService.setAutoContrastEnabled(!!theme.isAutoContrast);
-    this._setBackgroundGradient(!!theme.isDisableBackgroundGradient);
+    this._setBackgroundTint(!!theme.isDisableBackgroundTint);
 
     // NOTE: setting undefined values does not seem to be a problem so we use !
     if (!theme.isAutoContrast) {
@@ -110,14 +122,12 @@ export class GlobalThemeService {
     this._materialCssVarsService.setWarnColor(theme.warn!);
   }
 
-  private _setBackgroundGradient(isDisableBackgroundGradient: boolean): void {
-    if (isDisableBackgroundGradient) {
-      this.document.body.classList.add(BodyClass.isDisableBackgroundGradient);
-      this.document.body.classList.remove(BodyClass.isEnabledBackgroundGradient);
-    } else {
-      this.document.body.classList.add(BodyClass.isEnabledBackgroundGradient);
-      this.document.body.classList.remove(BodyClass.isDisableBackgroundGradient);
-    }
+  private _setBackgroundTint(isDisableBackgroundTint: boolean): void {
+    // Simplify: toggle only the disable flag; CSS handles the rest
+    this.document.body.classList.toggle(
+      BodyClass.isDisableBackgroundTint,
+      !!isDisableBackgroundTint,
+    );
   }
 
   private _initIcons(): void {
@@ -171,7 +181,7 @@ export class GlobalThemeService {
           );
         })
         .catch((error) => {
-          console.error(`Error loading icon: ${iconName} from ${url}`, error);
+          Log.err(`Error loading icon: ${iconName} from ${url}`, error);
         });
     });
 
@@ -184,7 +194,7 @@ export class GlobalThemeService {
     this._workContextService.currentTheme$.subscribe((theme: WorkContextThemeCfg) =>
       this._setColorTheme(theme),
     );
-    this.isDarkTheme$.subscribe((isDarkTheme) => this._setDarkTheme(isDarkTheme));
+    this._isDarkThemeObs$.subscribe((isDarkTheme) => this._setDarkTheme(isDarkTheme));
   }
 
   private _initHandlersForInitialBodyClasses(): void {
@@ -215,7 +225,7 @@ export class GlobalThemeService {
 
     if (IS_ANDROID_WEB_VIEW) {
       androidInterface.isKeyboardShown$.subscribe((isShown) => {
-        console.log('isShown', isShown);
+        Log.log('isShown', isShown);
 
         this.document.body.classList.remove(BodyClass.isAndroidKeyboardHidden);
         this.document.body.classList.remove(BodyClass.isAndroidKeyboardShown);
@@ -225,11 +235,31 @@ export class GlobalThemeService {
       });
     }
 
-    this._globalConfigService.misc$.subscribe((misc) => {
-      if (misc.isDisableAnimations) {
+    // Use effect to reactively update animation class
+    effect(() => {
+      const misc = this._globalConfigService.misc();
+      if (misc?.isDisableAnimations) {
         this.document.body.classList.add(BodyClass.isDisableAnimations);
       } else {
         this.document.body.classList.remove(BodyClass.isDisableAnimations);
+      }
+    });
+
+    // Add/remove hasBgImage class to body when background image changes
+    effect(() => {
+      if (this.backgroundImg()) {
+        this.document.body.classList.add(BodyClass.hasBgImage);
+      } else {
+        this.document.body.classList.remove(BodyClass.hasBgImage);
+      }
+    });
+
+    // Add/remove has-mobile-bottom-nav class to body for snack bar positioning
+    effect(() => {
+      if (this._layoutService.isShowMobileBottomNav) {
+        this.document.body.classList.add(BodyClass.hasMobileBottomNav);
+      } else {
+        this.document.body.classList.remove(BodyClass.hasMobileBottomNav);
       }
     });
 
@@ -287,5 +317,22 @@ export class GlobalThemeService {
           scales: {},
         };
     this._chartThemeService.setColorschemesOptions(overrides);
+  }
+
+  private _setupCustomThemeEffect(): void {
+    // Track previous theme to avoid unnecessary reloads
+    let previousThemeId: string | null = null;
+
+    // Set up effect to reactively update custom theme when config changes
+    effect(() => {
+      const misc = this._globalConfigService.misc();
+      const themeId = misc?.customTheme || 'default';
+
+      // Only load theme if it has changed
+      if (themeId !== previousThemeId) {
+        this._customThemeService.loadTheme(themeId);
+        previousThemeId = themeId;
+      }
+    });
   }
 }

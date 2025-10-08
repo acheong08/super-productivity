@@ -10,9 +10,8 @@ import {
   ScheduleItemTask,
   ScheduleItemType,
 } from '../planner.model';
-import { TaskCopy, TaskPlanned, TaskWithPlannedDay } from '../../tasks/task.model';
+import { TaskCopy, TaskWithDueDay, TaskWithDueTime } from '../../tasks/task.model';
 import { TaskRepeatCfg } from '../../task-repeat-cfg/task-repeat-cfg.model';
-import { selectTaskRepeatCfgsDueOnDayOnly } from '../../task-repeat-cfg/store/task-repeat-cfg.reducer';
 import { getDateTimeFromClockString } from '../../../util/get-date-time-from-clock-string';
 import { isSameDay } from '../../../util/is-same-day';
 import { getTimeLeftForTask } from '../../../util/get-time-left-for-task';
@@ -21,98 +20,55 @@ import { dateStrToUtcDate } from '../../../util/date-str-to-utc-date';
 import { calculateAvailableHours } from '../util/calculate-available-hours';
 import { selectConfigFeatureState } from '../../config/store/global-config.reducer';
 import { ScheduleConfig } from '../../config/global-config.model';
+import { selectTodayStr } from '../../../root-store/app-state/app-state.selectors';
+import { isToday } from '../../../util/is-today.util';
+import { selectTaskRepeatCfgsForExactDay } from '../../task-repeat-cfg/store/task-repeat-cfg.selectors';
 
 export const selectPlannerState = createFeatureSelector<fromPlanner.PlannerState>(
   fromPlanner.plannerFeatureKey,
 );
 
-export const selectAllTasksWithPlannedDay = createSelector(
+export const selectAllTasksDueToday = createSelector(
+  selectTodayStr,
   selectTaskFeatureState,
   selectPlannerState,
-  (taskState, plannerState): TaskWithPlannedDay[] => {
-    return Object.keys(plannerState.days)
-      .sort()
-      .reduce<TaskWithPlannedDay[]>(
-        (acc, dateStr) => [
-          ...acc,
-          ...plannerState.days[dateStr]
-            .filter((id) => taskState.entities[id])
-            .map((id) => {
-              const task = taskState.entities[id] as TaskWithPlannedDay;
-              return {
-                ...task,
-                plannedDay: dateStr,
-              };
-            }),
-        ],
-        [],
-      );
-  },
-);
-export const selectTaskIdPlannedDayMap = createSelector(
-  selectPlannerState,
-  (state): { [taskId: string]: string } => {
-    const taskIdDayMap: { [taskId: string]: string } = {};
-    Object.keys(state.days).forEach((day) => {
-      state.days[day].forEach((taskId) => {
-        taskIdDayMap[taskId] = day;
-      });
+  (todayStr, taskState, plannerState): (TaskWithDueTime | TaskWithDueDay)[] => {
+    const allDueDayTasks = Object.values(taskState.entities).filter(
+      (task) => !!task && !!(task as TaskWithDueTime).dueDay && todayStr === task.dueDay,
+    ) as TaskWithDueDay[];
+    const allDueWithTimeTasks = Object.values(taskState.entities).filter(
+      (task) =>
+        !!task &&
+        !!(task as TaskWithDueTime).dueWithTime &&
+        isToday((task as TaskWithDueTime).dueWithTime),
+    ) as TaskWithDueTime[];
+
+    const allDue: (TaskWithDueTime | TaskWithDueDay)[] = (
+      plannerState.days[todayStr] || []
+    )
+      .map((tid) => taskState.entities[tid] as TaskWithDueDay)
+      // there is a chance that the task is not in the store anymore
+      .filter((t) => !!t);
+
+    [...allDueDayTasks, ...allDueWithTimeTasks].forEach((task) => {
+      if (!allDue.find((t) => t.id === task.id)) {
+        allDue.push(task);
+      }
     });
-    return taskIdDayMap;
+    return allDue;
   },
 );
 
-// Updated selectAllDuePlannedDay
-export const selectAllDuePlannedDay = (
-  taskRepeatCfgs: TaskRepeatCfg[],
-  icalEvents: ScheduleCalendarMapEntry[],
-  allPlannedTasks: TaskPlanned[],
-  todayStr: string,
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const selectTasksForPlannerDay = (day: string) => {
   return createSelector(
-    selectTaskFeatureState,
     selectPlannerState,
-    (taskState, plannerState): PlannerDay => {
-      return getPlannerDay(
-        todayStr,
-        todayStr,
-        taskState,
-        plannerState,
-        taskRepeatCfgs,
-        allPlannedTasks,
-        icalEvents,
-        false,
-      );
-      // and then map all to one single day
-    },
-  );
-};
-
-export const selectAllDuePlannedOnDay = (
-  taskRepeatCfgs: TaskRepeatCfg[],
-  icalEvents: ScheduleCalendarMapEntry[],
-  allPlannedTasks: TaskPlanned[],
-  dayToGet: string,
-  todayStr: string,
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
-  return createSelector(
     selectTaskFeatureState,
-    selectPlannerState,
-    (taskState, plannerState): PlannerDay => {
-      return getPlannerDay(
-        dayToGet,
-        todayStr,
-        taskState,
-        plannerState,
-        taskRepeatCfgs,
-        allPlannedTasks,
-        icalEvents,
-        false,
-      );
-      // and then map all to one single day
-    },
+    (plannerState, taskState) =>
+      (plannerState.days[day] || [])
+        .map((tid) => taskState.entities[tid] as TaskCopy)
+        // there is a chance that the task is not in the store anymore
+        .filter((t) => !!t),
   );
 };
 
@@ -122,7 +78,7 @@ export const selectPlannerDays = (
   taskRepeatCfgs: TaskRepeatCfg[],
   todayListTaskIds: string[],
   icalEvents: ScheduleCalendarMapEntry[],
-  allPlannedTasks: TaskPlanned[],
+  allPlannedTasks: TaskWithDueTime[],
   todayStr: string,
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
@@ -188,16 +144,16 @@ const getPlannerDay = (
   taskState: any,
   plannerState: any,
   taskRepeatCfgs: TaskRepeatCfg[],
-  allPlannedTasks: TaskPlanned[],
+  allPlannedTasks: TaskWithDueTime[],
   icalEvents: ScheduleCalendarMapEntry[],
   unplannedTaskIdsToday: string[] | false,
   scheduleConfig?: ScheduleConfig,
 ): PlannerDay => {
-  const isToday = dayDate === todayStr;
+  const isTodayI = dayDate === todayStr;
   const currentDayDate = dateStrToUtcDate(dayDate);
   const currentDayTimestamp = currentDayDate.getTime();
   const tIds =
-    isToday && unplannedTaskIdsToday
+    isTodayI && unplannedTaskIdsToday
       ? unplannedTaskIdsToday
       : plannerState.days[dayDate] || [];
   const normalTasks = tIds
@@ -227,7 +183,7 @@ const getPlannerDay = (
   }
 
   return {
-    isToday: isToday,
+    isToday: isTodayI,
     dayDate,
     timeLimit: 0,
     itemsTotal:
@@ -274,7 +230,7 @@ const getAllRepeatableTasksForDay = (
 } => {
   const repeatProjectionsForDay: ScheduleItemRepeatProjection[] = [];
   const noStartTimeRepeatProjections: NoStartTimeRepeatProjection[] = [];
-  const allRepeatableTasksForDay = selectTaskRepeatCfgsDueOnDayOnly.projector(
+  const allRepeatableTasksForDay = selectTaskRepeatCfgsForExactDay.projector(
     taskRepeatCfgs,
     {
       dayDate: currentDayTimestamp,
@@ -307,13 +263,13 @@ const getAllRepeatableTasksForDay = (
 };
 
 const getScheduledTaskItems = (
-  allPlannedTasks: TaskPlanned[],
+  allPlannedTasks: TaskWithDueTime[],
   currentDayDate: Date,
 ): ScheduleItemTask[] =>
   allPlannedTasks
-    .filter((task) => isSameDay(task.plannedAt, currentDayDate))
+    .filter((task) => isSameDay(task.dueWithTime, currentDayDate))
     .map((task) => {
-      const start = task.plannedAt;
+      const start = task.dueWithTime;
       const end = start + Math.max(task.timeEstimate - task.timeSpent, 0);
       return {
         id: task.id,

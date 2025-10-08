@@ -17,13 +17,21 @@ import { CdkDropList } from '@angular/cdk/drag-drop';
 import { T } from 'src/app/t.const';
 import { ICalIssueReduced } from '../../issue/providers/calendar/calendar.model';
 import { getErrorTxt } from 'src/app/util/get-error-text';
-import { getWorklogStr } from '../../../util/get-work-log-str';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 import { DatePipe } from '@angular/common';
+import { ShortTimePipe } from '../../../ui/pipes/short-time.pipe';
 import { standardListAnimation } from '../../../ui/animations/standard-list.ani';
+import { Log } from '../../../core/log';
 
 @Component({
   selector: 'issue-panel-calendar-agenda',
-  imports: [ErrorCardComponent, IssuePreviewItemComponent, MatProgressSpinner, DatePipe],
+  imports: [
+    ErrorCardComponent,
+    IssuePreviewItemComponent,
+    MatProgressSpinner,
+    DatePipe,
+    ShortTimePipe,
+  ],
   templateUrl: './issue-panel-calendar-agenda.component.html',
   styleUrl: './issue-panel-calendar-agenda.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,7 +67,7 @@ export class IssuePanelCalendarAgendaComponent implements OnInit {
       throw new Error('Issue Provider and Search Result Type dont match');
     }
 
-    console.log('Add issue', item);
+    Log.log('Add issue', item);
 
     this._issueService.addTaskFromIssue({
       issueDataReduced: item.issueData,
@@ -100,30 +108,28 @@ export class IssuePanelCalendarAgendaComponent implements OnInit {
     // ]);
     this.isLoading.set(true);
     this._issueService
-      .searchIssues$(
+      .searchIssues(
         '',
         this.issueProvider().id,
         this.issueProvider().issueProviderKey,
         true,
       )
-      .subscribe(
-        (items: SearchResultItem[]) => {
-          this.isLoading.set(false);
-          this._setAgendaItems(items as SearchResultItem<'ICAL'>[]);
-        },
-        (e) => {
-          this.isLoading.set(false);
-          this._setAgendaItems([]);
-          console.error(e);
-          this.error.set(getErrorTxt(e));
-        },
-      );
+      .then((items: SearchResultItem[]) => {
+        this.isLoading.set(false);
+        this._setAgendaItems(items as SearchResultItem<'ICAL'>[]);
+      })
+      .catch((e) => {
+        this.isLoading.set(false);
+        this._setAgendaItems([]);
+        Log.err(e);
+        this.error.set(getErrorTxt(e));
+      });
   }
 
   private _setAgendaItems(items: SearchResultItem<'ICAL'>[]): void {
     const agenda = items.reduce(
       (acc, item) => {
-        const date = getWorklogStr((item.issueData as ICalIssueReduced).start);
+        const date = getDbDateStr((item.issueData as ICalIssueReduced).start);
 
         const existingDay = acc.find((day) => day.dayStr === date);
         if (existingDay) {

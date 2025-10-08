@@ -1,4 +1,4 @@
-@import '../../../../variables';
+@use '../../../../styles/_globals.scss' as *;
 
 :host {
   mat-dialog-content {

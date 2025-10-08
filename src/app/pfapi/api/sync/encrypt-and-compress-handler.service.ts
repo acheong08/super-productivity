@@ -2,7 +2,7 @@ import {
   extractSyncFileStateFromPrefix,
   getSyncFilePrefix,
 } from '../util/sync-file-prefix';
-import { pfLog } from '../util/log';
+import { PFLog } from '../../../core/log';
 import { decrypt, encrypt } from '../encryption/encryption';
 import { DecryptError, DecryptNoPasswordError } from '../errors/errors';
 import {
@@ -10,8 +10,11 @@ import {
   decompressGzipFromString,
 } from '../compression/compression-handler';
 import { EncryptAndCompressCfg } from '../pfapi.model';
+import { environment } from '../../../../environments/environment';
 
 export class EncryptAndCompressHandlerService {
+  private static readonly L = 'EncryptAndCompressHandlerService';
+
   async compressAndEncryptData<T>(
     cfg: EncryptAndCompressCfg,
     encryptKey: string | undefined,
@@ -59,10 +62,14 @@ export class EncryptAndCompressHandlerService {
       isEncrypt,
       modelVersion,
     });
-    pfLog(
-      2,
-      `${EncryptAndCompressHandlerService.name}.${this.compressAndEncrypt.name}()`,
-      { prefix, modelVersion, isCompress, isEncrypt },
+    PFLog.normal(
+      `${EncryptAndCompressHandlerService.L}.${this.compressAndEncrypt.name}()`,
+      {
+        prefix,
+        modelVersion,
+        isCompress,
+        isEncrypt,
+      },
     );
     let dataStr = JSON.stringify(data);
     if (isCompress) {
@@ -70,6 +77,7 @@ export class EncryptAndCompressHandlerService {
     }
     if (isEncrypt) {
       if (!encryptKey) {
+        PFLog.log(environment.production ? typeof encryptKey : encryptKey);
         throw new Error('No encryption password provided');
       }
 
@@ -91,9 +99,8 @@ export class EncryptAndCompressHandlerService {
   }> {
     const { isCompressed, isEncrypted, modelVersion, cleanDataStr } =
       extractSyncFileStateFromPrefix(dataStr);
-    pfLog(
-      2,
-      `${EncryptAndCompressHandlerService.name}.${this.decompressAndDecrypt.name}()`,
+    PFLog.normal(
+      `${EncryptAndCompressHandlerService.L}.${this.decompressAndDecrypt.name}()`,
       { isCompressed, isEncrypted, modelVersion },
     );
     let outStr = cleanDataStr;

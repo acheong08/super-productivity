@@ -26,15 +26,10 @@
   },
   "CONFIRM": {
     "AUTO_FIX": "Seus dados parecem estar danificados (\" {{validityError}}\"). Deseja tentar corrigi-los automaticamente? Isso pode resultar em perda parcial de dados.",
-    "DELETE_STRAY_BACKUP": "Deseja excluir o verso para não ver esta caixa de diálogo?",
     "RELOAD_AFTER_IDB_ERROR": "Não é possível acessar o banco de dados :( As possíveis causas são uma atualização do aplicativo em segundo plano ou pouco espaço em disco. Se você instalou o aplicativo no Linux como snap, você também deseja habilitar o reconhecimento de atualização 'snap set core experimental.refresh-app-awareness=true' até que eles corrijam esse problema. Pressione OK para recarregar o aplicativo (pode exigir a reinicialização manual do aplicativo em algumas plataformas).",
     "RESTORE_FILE_BACKUP": "Parece que NÃO HÁ DADOS, mas há backups disponíveis em \" {{dir}}\". Deseja restaurar o backup mais recente de {{from}}?",
     "RESTORE_FILE_BACKUP_ANDROID": "Parece que NÃO HÁ DADOS, mas há um backup disponível. Você quer carregá-lo?",
     "RESTORE_STRAY_BACKUP": "Durante a última sincronização pode ter ocorrido algum erro. Você quer restaurar o último backup?"
-  },
-  "DATETIME_INPUT": {
-    "IN": "em {{time}}",
-    "TOMORROW": "amanhã {{time}}"
   },
   "DATETIME_SCHEDULE": {
     "LATER_TODAY": "Mais tarde hoje",
@@ -55,32 +50,6 @@
         },
         "SELECT_TYPE": "Selecione um tipo",
         "TYPES": {
-          "FILE": "Arquivo (aberto pelo aplicativo padrão do sistema)",
-          "IMG": "Imagem (mostrada como miniatura)",
-          "LINK": "Link (abre no navegador)"
-        }
-      }
-    },
-    "BOOKMARK": {
-      "BAR": {
-        "ADD": "Adicionar Favorito",
-        "DROP": "Solte aqui para adicionar um Favorito",
-        "EDIT": "Editar Favoritos",
-        "NO_BOOKMARKS": "Você não tem Favoritos no projeto. Adicione um por meio de arrastar e soltar ou clicando no botão 'mais'."
-      },
-      "DIALOG_EDIT": {
-        "ADD_BOOKMARK": "Adicionar Favorito",
-        "EDIT_BOOKMARK": "Editar Favorito",
-        "LABELS": {
-          "COMMAND": "Comando",
-          "FILE": "Caminho do arquivo",
-          "IMG": "Imagem",
-          "LINK": "Url"
-        },
-        "SELECT_ICON": "Selecione um ícone",
-        "SELECT_TYPE": "Selecione um tipo",
-        "TYPES": {
-          "COMMAND": "Comando (comando de shell personalizado)",
           "FILE": "Arquivo (aberto pelo aplicativo padrão do sistema)",
           "IMG": "Imagem (mostrada como miniatura)",
           "LINK": "Link (abre no navegador)"
@@ -583,7 +552,9 @@
         "MARK_AS_CHECKED": "Marcar atualizações como verificadas",
         "STATUS": "Status",
         "SUMMARY": "Resumo",
-        "TYPE": "Tipo"
+        "TYPE": "Tipo",
+        "ATTACHMENTS": "Anexos",
+        "UPLOAD_ATTACHMENT": "Fazer upload para a tarefa"
       },
       "ISSUE_STRINGS": {
         "ISSUE_STR": "pacote de trabalho",
@@ -594,7 +565,8 @@
         "POST_TIME_SUCCESS": "OpenProject: Entrada de tempo criada com sucesso para {{issueTitle}}",
         "TRANSITION": "OpenProject: Defina o problema \" {{issueKey}}\" como \" {{name}}\"",
         "TRANSITION_SUCCESS": "OpenProject: Defina o problema {{issueKey}} como <strong>{{chosenTransition}}</strong>",
-        "TRANSITIONS_LOADED": "Transições carregadas. Use as seleções abaixo para atribuí-las"
+        "TRANSITIONS_LOADED": "Transições carregadas. Use as seleções abaixo para atribuí-las",
+        "ERR_NO_FILE": "Nenhum arquivo selecionado"
       }
     },
     "PLANNER": {
@@ -602,11 +574,6 @@
         "ADD_PLANNED": {
           "ADD_TO_TODAY": "Adicionar a Hoje",
           "TITLE": "Adicionar tarefas planejadas para Hoje"
-        },
-        "PLAN_FOR_DAY": {
-          "REMINDER_WARNING": "Isso removerá o lembrete da tarefa! Pressione Escape para cancelar.",
-          "REMOVE_PLAN_DATE": "Remover data do planenjamento",
-          "TITLE": "Planejar tarefa para o dia"
         }
       },
       "EDIT_REPEATED_TASK": "Editar tarefa repetida ' {{taskName}}'",
@@ -717,7 +684,7 @@
         "L_HUE_PRIMARY": "Limite para texto escuro em fundo de cor primária",
         "L_HUE_WARN": "Limite para texto escuro em fundo de cor de aviso",
         "L_IS_AUTO_CONTRAST": "Definir cores de texto automaticamente para melhor legibilidade",
-        "L_IS_DISABLE_BACKGROUND_GRADIENT": "Desativar gradiente de fundo colorido",
+        "L_IS_DISABLE_BACKGROUND_TINT": "Desativar gradiente de fundo colorido",
         "L_IS_REDUCED_THEME": "Use interface de usuário reduzida (sem caixas ao redor das tarefas)",
         "L_THEME_COLOR": "Cor do tema",
         "L_TITLE": "Título",
@@ -809,7 +776,7 @@
         "CURRENT_STREAK": "Sequência atual",
         "DAILY_GOAL": "Meta diária",
         "DAYS": "Dias",
-        "L_COUNTER": "Contagem para hoje"
+        "L_COUNTER": "Contagem"
       },
       "FORM": {
         "ADD_NEW": "Adicionar contador/hábito simples",
@@ -840,7 +807,6 @@
       },
       "C": {
         "EMPTY_SYNC": "Você está tentando sincronizar um objeto de dados vazio. Se estiver tentando configurar a sincronização de uma nova instância de aplicativo, basta pressionar OK para carregar os dados do servidor. Caso contrário, verifique seus dados.",
-        "FORCE_IMPORT": "Importar dados remotos mesmo assim?",
         "FORCE_UPLOAD": "Carregar dados locais mesmo assim?",
         "FORCE_UPLOAD_AFTER_ERROR": "Ocorreu um erro ao carregar seus dados locais. Tentar forçar a atualização?",
         "MIGRATE_LEGACY": "Dados legados detectados durante a importação. Deseja tentar migrá-los?",
@@ -973,7 +939,7 @@
         "REMINDER": "Lembrete",
         "REPEAT": "Repita",
         "SCHEDULE_TASK": "Agendar tarefa",
-        "SCHEDULED_AT": "Programado para",
+        "DUE": "Programado para",
         "SUB_TASKS": "Subtarefas ( {{nr}})",
         "TIME": "Tempo",
         "TITLE_PLACEHOLDER": "Insira um título"
@@ -998,7 +964,7 @@
         "MARK_UNDONE": "Marcar como desfeito",
         "MOVE_TO_BACKLOG": "Mover para pendências",
         "MOVE_TO_OTHER_PROJECT": "Mover para outro projeto",
-        "MOVE_TO_TODAY": "Mover para a lista de hoje",
+        "MOVE_TO_REGULAR": "Mover para a lista de hoje",
         "OPEN_ATTACH": "Anexar arquivo ou link",
         "OPEN_ISSUE": "Abrir no navegador",
         "OPEN_TIME": "Rastreamento de tempo",
@@ -1025,8 +991,6 @@
       "D_REMINDER_VIEW": {
         "ADD_ALL_TO_TODAY": "Adicione tudo para hoje",
         "ADD_TO_TODAY": "Adicione a hoje",
-        "DISMISS": "Descartar lembrete",
-        "DISMISS_ALL": "Descartar tudo",
         "DONE": "Feito",
         "DUE_TASK": "Tarefa atrasada",
         "DUE_TASKS": "Tarefas atrasadas",
@@ -1277,7 +1241,22 @@
     "EXPORT_DATA": "Exportar dados",
     "IMPORT_FROM_FILE": "Importar do arquivo",
     "PRIVACY_EXPORT": "Exportar dados anonimizados (para enviar para contact@super-productivity.com para depuração)",
-    "S_ERR_INVALID_DATA": "Falha na importação: JSON inválido"
+    "S_ERR_INVALID_DATA": "Falha na importação: JSON inválido",
+    "S_ERR_INVALID_URL": "Falha na importação: URL fornecido inválido",
+    "S_IMPORT_FROM_URL_ERR_DECODE": "Erro: Não foi possível decodificar o parâmetro de URL para importação. Certifique-se de que está corretamente formatado.",
+    "S_ERR_NETWORK": "Falha na importação: erro de rede ao buscar dados do URL",
+    "IMPORT_FROM_URL": "Importar do URL",
+    "URL_PLACEHOLDER": "Insira o URL para importar",
+    "IMPORT_FROM_URL_DIALOG_TITLE": "Importar do URL",
+    "IMPORT_FROM_URL_DIALOG_DESCRIPTION": "Por favor, insira o URL completo do arquivo de backup JSON do Super Productivity que deseja importar.",
+    "OPEN_IMPORT_FROM_URL_DIALOG": "Importar do URL",
+    "DIALOG_CONFIRM_URL_IMPORT": {
+      "TITLE": "Confirmar importação de dados do URL",
+      "INITIATED_MSG": "Uma importação automática de dados foi iniciada.",
+      "SOURCE_URL_DOMAIN": "Domínio de origem",
+      "WARNING_TITLE": "Aviso",
+      "WARNING_MSG": "Prosseguir irá sobrescrever seus dados e configurações atuais do aplicativo com o conteúdo do URL especificado. Esta ação não pode ser desfeita."
+    }
   },
   "G": {
     "ADD": "Adicionar",
@@ -1372,7 +1351,7 @@
       "MOVE_TASK_TO_TOP": "Mover tarefa para o topo da lista",
       "MOVE_TASK_UP": "Mover tarefa para cima na lista",
       "MOVE_TO_BACKLOG": "Mover tarefa para pendência de tarefas",
-      "MOVE_TO_TODAYS_TASKS": "Mover tarefa para a lista de tarefas de hoje",
+      "MOVE_TO_REGULARS_TASKS": "Mover tarefa para a lista de tarefas de hoje",
       "OPEN_PROJECT_NOTES": "Mostrar/Ocultar Notas",
       "SAVE_NOTE": "Salvar nota",
       "SELECT_NEXT_TASK": "Selecione a próxima tarefa",
@@ -1576,7 +1555,7 @@
     "PROJECT_SETTINGS": "Configurações do projeto",
     "PROJECTS": "Projetos",
     "QUICK_HISTORY": "Histórico rápido",
-    "REPEAT_SCHEDULED": "Repetido/Programado",
+    "ALL_PLANNED_LIST": "Repetido/Programado",
     "SCHEDULE": "Linha do tempo",
     "SETTINGS": "Configurações",
     "SHOW_SEARCH_BAR": "Mostrar barra de pesquisa",
@@ -1645,7 +1624,7 @@
     "NO_SCHEDULED_TITLE": "Tarefas agendadas para o dia",
     "REPEATED_TASKS": "Tarefas repetidas",
     "SCHEDULED_TASKS": "Tarefas agendadas",
-    "SCHEDULED_TASKS_WITH_REMINDER": "Tarefas agendadas com lembrete",
+    "SCHEDULED_TASKS_WITH_TIME": "Tarefas agendadas com lembrete",
     "START_TASK": "Iniciar tarefa e remover lembrete"
   },
   "THEMES": {
@@ -1678,17 +1657,14 @@
   },
   "WW": {
     "ADD_MORE": "Adicionar mais",
-    "ADD_SCHEDULED_FOR_TODAY": "Adicionar tarefas planejadas para hoje ( {{nr}})",
     "ADD_SCHEDULED_FOR_TOMORROW": "Adicionar tarefas planejadas para amanhã ( {{nr}})",
     "ADD_SOME_TASKS": "Adicione algumas tarefas para planejar seu dia!",
-    "COMPLETED_TASKS": "Tarefas Concluídas",
     "ESTIMATE_REMAINING": "Estimativa restante:",
     "FINISH_DAY": "Dia de término",
     "FINISH_DAY_FOR_PROJECT": "Dia de conclusão deste projeto",
     "FINISH_DAY_FOR_TAG": "Dia de término para esta etiqueta",
     "FINISH_DAY_TOOLTIP": "Avalie seu dia, mova todas as tarefas concluídas para o arquivo (opcionalmente) e/ou planeje seu dia seguinte.",
     "HELP_PROCRASTINATION": "Socorro, estou procrastinando!",
-    "NO_COMPLETED_TASKS": "Não há tarefas concluídas no momento",
     "NO_PLANNED_TASKS": "Nenhuma tarefa planejada",
     "READY_TO_WORK": "Pronto para trabalhar!",
     "RESET_BREAK_TIMER": "Reiniciar sem temporizador de intervalo",

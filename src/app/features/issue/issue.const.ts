@@ -30,6 +30,8 @@ import {
   DEFAULT_CALENDAR_CFG,
 } from './providers/calendar/calendar.const';
 
+export const DELAY_BEFORE_ISSUE_POLLING = 8000;
+
 export const GITLAB_TYPE: IssueProviderKey = 'GITLAB';
 export const GITHUB_TYPE: IssueProviderKey = 'GITHUB';
 export const JIRA_TYPE: IssueProviderKey = 'JIRA';
@@ -105,10 +107,9 @@ export const ISSUE_STR_MAP: { [key: string]: { ISSUE_STR: string; ISSUES_STR: st
     [GITHUB_TYPE]: DEFAULT_ISSUE_STRS,
     [GITLAB_TYPE]: DEFAULT_ISSUE_STRS,
     [CALDAV_TYPE]: DEFAULT_ISSUE_STRS,
-    // TODO correct value and add translation
     [ICAL_TYPE]: {
-      ISSUE_STR: T.F.OPEN_PROJECT.ISSUE_STRINGS.ISSUE_STR,
-      ISSUES_STR: T.F.OPEN_PROJECT.ISSUE_STRINGS.ISSUES_STR,
+      ISSUE_STR: T.F.CALENDARS.EVENT_STRINGS.EVENT_STR,
+      ISSUES_STR: T.F.CALENDARS.EVENT_STRINGS.EVENTS_STR,
     },
     [OPEN_PROJECT_TYPE]: {
       ISSUE_STR: T.F.OPEN_PROJECT.ISSUE_STRINGS.ISSUE_STR,
